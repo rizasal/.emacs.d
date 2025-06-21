@@ -23,6 +23,13 @@
 ;; running Emacs as a server, such as 'What version of Node is my LSP using?'.
 ;; Again, this setup configures Emacs much like how a Vimmer would configure Neovim.
 
+(let ((node-bin
+     (string-replace "/node\n" ""
+                     (shell-command-to-string ". $HOME/.nvm/nvm.sh && nvm which current"))))
+(add-to-list 'exec-path node-bin)
+(setenv "PATH"
+      (concat node-bin ":" (getenv "PATH"))))
+
 ;; Emacs comes with a built-in package manager (`package.el'), and we'll use it
 ;; when it makes sense. However, `straight.el' is a bit more user-friendly and
 ;; reproducible, especially for newcomers and shareable configs like emacs-kick.
@@ -188,6 +195,13 @@
                          (emacs-init-time)
                          (number-to-string (length package-activated-list))))))))
 
+(use-package exec-path-from-shell
+  :ensure t
+  :custom
+  (when (memq window-system '(mac ns x))
+      (exec-path-from-shell-initialize))
+)
+
 (use-package window
   :ensure nil       ;; This is built-in, no need to fetch it.
   :custom
@@ -337,18 +351,13 @@
 
 ;;(projectile-globally-ignored-files '("TAGS" "*.log" "*.tmp" "*.temp" "*.DS_Store"))
 
-;; `which-key' is an Emacs package that displays available keybindings in a
-;; popup window whenever you partially type a key sequence. This is particularly
-;; useful for discovering commands and shortcuts, making it easier to learn
-;; Emacs and improve your workflow. It helps users remember key combinations
-;; and reduces the cognitive load of memorizing every command.
 (use-package which-key
   :ensure nil     ;; This is built-in, no need to fetch it.
   :defer t        ;; Defer loading Which-Key until after init.
   :hook
   (after-init . which-key-mode)) ;; Enable which-key mode after initialization.
 
-(use-package verticO
+(use-package vertico
   :ensure t
   :straight t
   :hook
@@ -463,156 +472,113 @@
   :hook
   (after-init . global-company-mode)) ;; Enable Company Mode globally after initialization.
 
-(defun dw/org-mode-setup ()
-   (org-indent-mode)
-   (variable-pitch-mode 1)
-   (auto-fill-mode 0)
-   (visual-line-mode 1)
-   (setq evil-auto-indent nil))
-
- (use-package org
-   :hook (org-mode . dw/org-mode-setup)
-   :config
-   (setq org-ellipsis " ▾"
-         org-hide-emphasis-markers t))
-
- (use-package org-bullets
-   :after org
-   :hook (org-mode . org-bullets-mode)
-   :custom
-   (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
-
- ;; Replace list hyphen with dot
- (font-lock-add-keywords 'org-mode
-                         '(("^ *\\([-]\\) "
-                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-
-(with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
-               (org-level-2 . 1.1)
-               (org-level-3 . 1.05)
-               (org-level-4 . 1.0)
-               (org-level-5 . 1.1)
-               (org-level-6 . 1.1)
-               (org-level-7 . 1.1)
-               (org-level-8 . 1.1)))
-   (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
-
- ;; Make sure org-indent face is available
- (require 'org-indent)
-
- ;; Ensure that anything that should be fixed-pitch in Org files appears that way
- (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
- (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
- (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
- (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
- (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
- (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
- (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
-
-;; Org Babel Configuration
-  (org-babel-do-load-languages
-    'org-babel-load-languages
-    '((emacs-lisp . t)
-      (python . t)
-      (shell . t)))
-
-  ;; Don't prompt before running code in org
-  (setq org-confirm-babel-evaluate nil)
-
-  ;; Structure templates for easier code block insertion
-  (require 'org-tempo)
-  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-  (add-to-list 'org-structure-template-alist '("py" . "src python"))
-
-  ;; Automatically tangle our Emacs.org config file when we save it
-(defun efs/org-babel-tangle-config ()
-  (when (string-equal (file-name-directory (buffer-file-name))
-                      (expand-file-name user-emacs-directory))
-    ;; Dynamic scoping to the rescue
-    (let ((org-confirm-babel-evaluate nil))
-      (org-babel-tangle))))
-
-(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
-
-(use-package lsp-mode
+(use-package exec-path-from-shell
+  :if (memq window-system '(mac ns x)) ; Only use in GUI on macOS or X11
   :ensure t
-  :straight t
-  :defer t
-  :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
-         (bash-ts-mode . lsp)                           ;; Enable LSP for Bash
-         (typescript-ts-mode . lsp)                     ;; Enable LSP for TypeScript
-         (tsx-ts-mode . lsp)                            ;; Enable LSP for TSX
-         (js-mode . lsp)                                ;; Enable LSP for JavaScript
-         (python-mode . lsp)                                ;; Enable LSP for Python
-         (js-ts-mode . lsp)                             ;; Enable LSP for JavaScript (TS mode)
-         (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
-  :commands lsp
-  :custom
-  (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
-  (lsp-inlay-hint-enable t)                             ;; Enable inlay hints.
-  (lsp-completion-provider :none)                       ;; Disable the default completion provider.
-  (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
-  (lsp-log-io nil)                                      ;; Disable IO logging for speed.
-  (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
-  (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
-  ;; Core settings
-  (lsp-enable-xref t)                                   ;; Enable cross-references.
-  (lsp-auto-configure t)                                ;; Automatically configure LSP.
-  (lsp-enable-links nil)                                ;; Disable links.
-  (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
-  (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
-  (lsp-enable-folding nil)                              ;; Disable folding.
-  (lsp-enable-imenu t)                                  ;; Enable Imenu support.
-  (lsp-enable-indentation nil)                          ;; Disable indentation.
-  (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
-  (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
-  (lsp-enable-symbol-highlighting t)                    ;; Enable symbol highlighting.
-  (lsp-enable-text-document-color nil)                  ;; Disable text document color.
-  ;; Modeline settings
-  (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
-  (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
-  (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
-  (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
-  (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
-  ;; Completion settings
-  (lsp-completion-enable t)                             ;; Enable completion.
-  (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
-  (lsp-enable-snippet nil)                              ;; Disable snippets
-  (lsp-completion-show-kind t)                          ;; Show kind in Lens.
-  ;; completions settings
-  (lsp-lens-enable t)                                   ;; Enable lens support.
-  ;; Headerline settings
-  (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
-  (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
-  (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
-  (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
-  ;; Semantic settings
-  (lsp-semantic-tokens-enable nil))                     ;; Disable semantic tokens.
+  :config
+  (exec-path-from-shell-initialize))
+
+(use-package python
+  :ensure nil ; because python is built-in, no need to install
+  :bind
+  (:map python-mode-map
+        ("C-c C-p" . nil))
+  ) ; Unset C-c C-p in python-mode-map
+
+
+  (use-package pet
+    :ensure t
+    :config
+    (add-hook 'python-base-mode-hook 'pet-mode -10))
+
+(setenv "LSP_USE_PLISTS" "1")
+  (use-package lsp-mode
+    :ensure t
+    :straight t
+    :defer t
+    :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
+           (bash-ts-mode . lsp)                           ;; Enable LSP for Bash
+           (typescript-ts-mode . lsp)                     ;; Enable LSP for TypeScript
+           (tsx-ts-mode . lsp)                            ;; Enable LSP for TSX
+           (js-mode . lsp)                                ;; Enable LSP for JavaScript
+           (python-mode . lsp)                                ;; Enable LSP for Python
+           (python-ts-mode . lsp)                                ;; Enable LSP for Python (ts mode)
+           (js-ts-mode . lsp)                             ;; Enable LSP for JavaScript (TS mode)
+           (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
+    :commands lsp
+    :custom
+    (setq lsp-use-plists t)
+    (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
+    (lsp-inlay-hint-enable t)                             ;; Enable inlay hints.
+    (lsp-completion-provider :none)                       ;; Disable the default completion provider.
+    (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
+    (lsp-log-io nil)                                      ;; Disable IO logging for speed.
+    (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
+    (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
+    ;; Core settings
+    (lsp-enable-xref t)                                   ;; Enable cross-references.
+    (lsp-auto-configure t)                                ;; Automatically configure LSP.
+    (lsp-enable-links nil)                                ;; Disable links.
+    (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
+    (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
+    (lsp-enable-folding nil)                              ;; Disable folding.
+    (lsp-enable-imenu t)                                  ;; Enable Imenu support.
+    (lsp-enable-indentation nil)                          ;; Disable indentation.
+    (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
+    (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
+    (lsp-enable-symbol-highlighting t)                    ;; Enable symbol highlighting.
+    (lsp-enable-text-document-color nil)                  ;; Disable text document color.
+    ;; Modeline settings
+    (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
+    (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
+    (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
+    (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
+    (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
+    ;; Completion settings
+    (lsp-completion-enable t)                             ;; Enable completion.
+    (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
+    (lsp-enable-snippet nil)                              ;; Disable snippets
+    (lsp-completion-show-kind t)                          ;; Show kind in Lens.
+    ;; completions settings
+    (lsp-lens-enable t)                                   ;; Enable lens support.
+    ;; Headerline settings
+    (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
+    (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
+    (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
+    (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
+    ;; Semantic settings
+    (lsp-semantic-tokens-enable nil))                     ;; Disable semantic tokens.
 
 (use-package lsp-tailwindcss
-  :ensure t
-  :straight t
-  :defer t
+          :ensure t
+          :straight t
+          :defer t
+          :config
+          (add-to-list 'lsp-language-id-configuration '(".*\\.erb$" . "html")) ;; Associate ERB files with HTML.
+          :init
+          (setq lsp-tailwindcss-add-on-mode t))
+
+       (use-package lsp-pyright
+         :ensure t
+         :after lsp-mode
+         :custom
+           (lsp-pyright-langserver-command "pyright") ;; or basedpyright
+         :hook (
+ 			   (python-mode . (lambda () (require 'lsp-pyright) (lsp)))
+               (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp))))
+     )
+
+                        ; or lsp-deferred
+
+        ;(with-eval-after-load 'lsp-mode
+        ;  (setq lsp-language-id-configuration
+        ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
+        ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
+(setq lsp-disabled-clients '(ty-ls ruff))
+
+(use-package pyvenv
   :config
-  (add-to-list 'lsp-language-id-configuration '(".*\\.erb$" . "html")) ;; Associate ERB files with HTML.
-  :init
-  (setq lsp-tailwindcss-add-on-mode t))
-
-(use-package lsp-pyright
-  :ensure t
-  :after lsp-mode
-  :custom (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
-  :hook (python-mode . (lambda ()
-                          (require 'lsp-pyright)
-                          (lsp))))  ; or lsp-deferred
-
-;(with-eval-after-load 'lsp-mode
-;  (setq lsp-language-id-configuration
-;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
-;  (setq lsp-disabled-clients '(ty-ls)))
+  (pyvenv-mode 1))
 
 (use-package diff-hl
   :defer t
@@ -875,6 +841,120 @@
   ;; This keeps undo history across sessions, stored in a cache directory.
   (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/.cache/undo"))))
 
+(defun dw/org-mode-setup ()
+      (org-indent-mode)
+      (variable-pitch-mode 1)
+      (auto-fill-mode 0)
+      (visual-line-mode 1)
+      (setq evil-auto-indent nil))
+
+    (use-package org
+      :hook (org-mode . dw/org-mode-setup)
+      :config
+      (setq org-ellipsis " ▾"
+            org-hide-emphasis-markers t))
+
+    (use-package org-bullets
+      :after org
+      :hook (org-mode . org-bullets-mode)
+      :custom
+      (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+
+    ;; Replace list hyphen with dot
+    (font-lock-add-keywords 'org-mode
+                            '(("^ *\\([-]\\) "
+                              (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+
+
+  ; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
+  ;                (org-level-2 . 1.1)
+  ;                (org-level-3 . 1.05)
+  ;                (org-level-4 . 1.0)
+  ;                (org-level-5 . 1.1)
+  ;                (org-level-6 . 1.1)
+  ;                (org-level-7 . 1.1)
+  ;                (org-level-8 . 1.1)))
+  ;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
+
+     (let* ((variable-tuple
+           (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
+                 ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
+                 ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
+                 ((x-list-fonts "Verdana")         '(:font "Verdana"))
+                 ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
+                 (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+          (base-font-color     (face-foreground 'default nil 'default))
+          (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
+
+     (custom-theme-set-faces
+      'user
+      `(org-level-8 ((t (,@headline ,@variable-tuple))))
+      `(org-level-7 ((t (,@headline ,@variable-tuple))))
+      `(org-level-6 ((t (,@headline ,@variable-tuple))))
+      `(org-level-5 ((t (,@headline ,@variable-tuple))))
+      `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
+      `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
+      `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
+      `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
+      `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
+
+    (custom-theme-set-faces
+   'user
+   '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
+   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
+  (add-hook 'org-mode-hook 'variable-pitch-mode)
+    ;; Make sure org-indent face is available
+    (require 'org-indent)
+  (custom-theme-set-faces
+   'user
+   '(org-block ((t (:inherit fixed-pitch))))
+   '(org-code ((t (:inherit (shadow fixed-pitch)))))
+   '(org-document-info ((t (:foreground "dark orange"))))
+   '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+   '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+   '(org-link ((t (:foreground "royal blue" :underline t))))
+   '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+   '(org-property-value ((t (:inherit fixed-pitch))) t)
+   '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+   '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+   '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+   '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
+
+;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
+;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
+;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
+;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
+
+;; Org Babel Configuration
+  (org-babel-do-load-languages
+    'org-babel-load-languages
+    '((emacs-lisp . t)
+      (python . t)
+      (shell . t)))
+
+  ;; Don't prompt before running code in org
+  (setq org-confirm-babel-evaluate nil)
+
+  ;; Structure templates for easier code block insertion
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python"))
+
+  ;; Automatically tangle our Emacs.org config file when we save it
+(defun efs/org-babel-tangle-config ()
+  (when (string-equal (file-name-directory (buffer-file-name))
+                      (expand-file-name user-emacs-directory))
+    ;; Dynamic scoping to the rescue
+    (let ((org-confirm-babel-evaluate nil))
+      (org-babel-tangle))))
+
+(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+
 (use-package rainbow-delimiters
   :defer t
   :straight t
@@ -1045,7 +1125,7 @@
      ((error line-start (file-name) ":" line ":" column ": error: " (message) line-end))
      :modes python-mode)
 
- 
+
 (add-to-list 'flycheck-checkers 'python-ty)
 
 (add-hook 'python-mode-hook
