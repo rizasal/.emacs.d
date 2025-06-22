@@ -252,14 +252,6 @@
       (when gls
         (setq insert-directory-program gls)))))
 
-(use-package erc
-  :defer t ;; Load ERC when needed rather than at startup. (Load it with `M-x erc RET')
-  :custom
-  (erc-join-buffer 'window)                                        ;; Open a new window for joining channels.
-  (erc-hide-list '("JOIN" "PART" "QUIT"))                          ;; Hide messages for joins, parts, and quits to reduce clutter.
-  (erc-timestamp-format "[%H:%M]")                                 ;; Format for timestamps in messages.
-  (erc-autojoin-channels-alist '((".*\\.libera\\.chat" "#emacs"))));; Automatically join the #emacs channel on Libera.Chat.
-
 (use-package isearch
   :ensure nil                                  ;; This is built-in, no need to fetch it.
   :config
@@ -310,19 +302,6 @@
   :init
   (global-eldoc-mode))
 
-;; Flymake is an on-the-fly syntax checking extension that provides real-time feedback
-;; about errors and warnings in your code as you write. This can greatly enhance your
-;; coding experience by catching issues early. The configuration below activates
-;; Flymake mode in programming buffers.
-(use-package flymake
-  :ensure nil          ;; This is built-in, no need to fetch it.
-  :defer t
-  :hook (prog-mode . flymake-mode)
-  :custom
-  (flymake-margin-indicators-string
-   '((error "!»" compilation-error) (warning "»" compilation-warning)
-     (note "»" compilation-info))))
-
 (use-package projectile
   :ensure t
   :init
@@ -332,11 +311,11 @@
   ;; Set the project search paths (edit to your actual folders)
   (setq projectile-project-search-path '("~/airbase/" "~/.emacs.d/"))
   ;; Use default completion system (can be overridden by vertico, helm, etc.)
-  (setq projectile-completion-system 'default)
+  (setq projectile-completion-system 'vertico)
   ;; Set a shorter mode line label
   (setq projectile-mode-line-prefix " Proj")
   ;; Faster indexing method (can also be 'alien or 'hybrid)
-  (setq projectile-indexing-method 'native)
+  (setq projectile-indexing-method 'alien)
   ;; Enable caching for performance
   (setq projectile-enable-caching t)
   ;; Optionally bind the keymap under C-c p
@@ -424,16 +403,6 @@
   :hook
   (embark-collect-mode . consult-preview-at-point-mode)) ;; Enable preview in Embark collect mode.
 
-(use-package treesit-auto
-  :ensure t
-  :straight t
-  :after emacs
-  :custom
-  (treesit-auto-install 'prompt)
-  :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode t))
-
 (use-package yasnippet
   :ensure t
   :config
@@ -479,102 +448,110 @@
   (exec-path-from-shell-initialize))
 
 (use-package python
-  :ensure nil ; because python is built-in, no need to install
-  :bind
-  (:map python-mode-map
-        ("C-c C-p" . nil))
-  ) ; Unset C-c C-p in python-mode-map
+   :ensure nil ; because python is built-in, no need to install
+   :bind
+   (:map python-mode-map
+         ("C-c C-p" . nil))
+   ) ; Unset C-c C-p in python-mode-map
 
 
-  (use-package pet
-    :ensure t
-    :config
-    (add-hook 'python-base-mode-hook 'pet-mode -10))
+;   (use-package pet
+;     :ensure t
+;     :config
+;     (add-hook 'python-base-mode-hook 'pet-mode -10))
 
 (setenv "LSP_USE_PLISTS" "1")
-  (use-package lsp-mode
+      (use-package lsp-mode
+        :ensure t
+        :straight t
+        :defer t
+        :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
+               (bash-ts-mode . lsp)                           ;; Enable LSP for Bash
+               (typescript-ts-mode . lsp)                     ;; Enable LSP for TypeScript
+               (tsx-ts-mode . lsp)                            ;; Enable LSP for TSX
+               (js-mode . lsp)                                ;; Enable LSP for JavaScript
+               (python-mode . lsp-deferred)                                ;; Enable LSP for Python
+               (python-ts-mode . lsp-deferred)                                ;; Enable LSP for Python (ts mode)
+               (js-ts-mode . lsp)                             ;; Enable LSP for JavaScript (TS mode)
+               (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
+        :commands (lsp lsp-deferred)
+        :custom
+        (setq lsp-use-plists t)
+        (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
+        (lsp-inlay-hint-enable t)                             ;; Enable inlay hints.
+;        (lsp-completion-provider :none)                       ;; Disable the default completion provider.
+;        (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
+;        (lsp-log-io nil)                                      ;; Disable IO logging for speed.
+;        (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
+;        (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
+;        ;; Core settings
+;        (lsp-enable-xref t)                                   ;; Enable cross-references.
+;        (lsp-auto-configure t)                                ;; Automatically configure LSP.
+;        (lsp-enable-links nil)                                ;; Disable links.
+;        (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
+;        (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
+;        (lsp-enable-folding nil)                              ;; Disable folding.
+;        (lsp-enable-imenu t)                                  ;; Enable Imenu support.
+;        (lsp-enable-indentation nil)                          ;; Disable indentation.
+;        (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
+;        (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
+;        (lsp-enable-symbol-highlighting t)                    ;; Enable symbol highlighting.
+;        (lsp-enable-text-document-color nil)                  ;; Disable text document color.
+;        ;; Modeline settings
+;        (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
+;        (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
+;        (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
+;        (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
+;        (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
+;        ;; Completion settings
+;        (lsp-completion-enable t)                             ;; Enable completion.
+;        (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
+;        (lsp-enable-snippet nil)                              ;; Disable snippets
+;        (lsp-completion-show-kind t)                          ;; Show kind in Lens.
+;        ;; completions settings
+;        (lsp-lens-enable t)                                   ;; Enable lens support.
+;        ;; Headerline settings
+;        (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
+;        (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
+;        (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
+;        (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
+;        ;; Semantic settings
+;        (lsp-semantic-tokens-enable nil)
+        (setq lsp-restart 'auto-restart)
+        (setq lsp-enable-file-watchers nil)
+  	  )                     ;; Disable semantic tokens.
+
+(use-package lsp-pyright
     :ensure t
-    :straight t
-    :defer t
-    :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
-           (bash-ts-mode . lsp)                           ;; Enable LSP for Bash
-           (typescript-ts-mode . lsp)                     ;; Enable LSP for TypeScript
-           (tsx-ts-mode . lsp)                            ;; Enable LSP for TSX
-           (js-mode . lsp)                                ;; Enable LSP for JavaScript
-           (python-mode . lsp)                                ;; Enable LSP for Python
-           (python-ts-mode . lsp)                                ;; Enable LSP for Python (ts mode)
-           (js-ts-mode . lsp)                             ;; Enable LSP for JavaScript (TS mode)
-           (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
-    :commands lsp
+    :after lsp-mode
     :custom
-    (setq lsp-use-plists t)
-    (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
-    (lsp-inlay-hint-enable t)                             ;; Enable inlay hints.
-    (lsp-completion-provider :none)                       ;; Disable the default completion provider.
-    (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
-    (lsp-log-io nil)                                      ;; Disable IO logging for speed.
-    (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
-    (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
-    ;; Core settings
-    (lsp-enable-xref t)                                   ;; Enable cross-references.
-    (lsp-auto-configure t)                                ;; Automatically configure LSP.
-    (lsp-enable-links nil)                                ;; Disable links.
-    (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
-    (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
-    (lsp-enable-folding nil)                              ;; Disable folding.
-    (lsp-enable-imenu t)                                  ;; Enable Imenu support.
-    (lsp-enable-indentation nil)                          ;; Disable indentation.
-    (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
-    (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
-    (lsp-enable-symbol-highlighting t)                    ;; Enable symbol highlighting.
-    (lsp-enable-text-document-color nil)                  ;; Disable text document color.
-    ;; Modeline settings
-    (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
-    (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
-    (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
-    (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
-    (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
-    ;; Completion settings
-    (lsp-completion-enable t)                             ;; Enable completion.
-    (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
-    (lsp-enable-snippet nil)                              ;; Disable snippets
-    (lsp-completion-show-kind t)                          ;; Show kind in Lens.
-    ;; completions settings
-    (lsp-lens-enable t)                                   ;; Enable lens support.
-    ;; Headerline settings
-    (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
-    (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
-    (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
-    (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
-    ;; Semantic settings
-    (lsp-semantic-tokens-enable nil))                     ;; Disable semantic tokens.
+      (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
+    :hook (
+		   (python-mode . (lambda () (require 'lsp-pyright) (lsp)))
+          ;(python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
+		   )
+)
 
-(use-package lsp-tailwindcss
-          :ensure t
-          :straight t
-          :defer t
-          :config
-          (add-to-list 'lsp-language-id-configuration '(".*\\.erb$" . "html")) ;; Associate ERB files with HTML.
-          :init
-          (setq lsp-tailwindcss-add-on-mode t))
+                   ; or lsp-deferred
 
-       (use-package lsp-pyright
-         :ensure t
-         :after lsp-mode
-         :custom
-           (lsp-pyright-langserver-command "pyright") ;; or basedpyright
-         :hook (
- 			   (python-mode . (lambda () (require 'lsp-pyright) (lsp)))
-               (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp))))
-     )
+   ;(with-eval-after-load 'lsp-mode
+   ;  (setq lsp-language-id-configuration
+   ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
+   ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
 
-                        ; or lsp-deferred
-
-        ;(with-eval-after-load 'lsp-mode
-        ;  (setq lsp-language-id-configuration
-        ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-        ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
-(setq lsp-disabled-clients '(ty-ls ruff))
+(use-package consult-lsp
+  :ensure t
+  :after (lsp-mode consult)
+  :init
+  ;; Optional: Remap xref-find-apropos to consult-lsp-symbols
+  ;; This makes M-x xref-find-apropos (or its default binding, C-c C-d)
+  ;; use consult-lsp-symbols for workspace-wide symbol search.
+  (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)
+  ;; Other useful remappings for file symbols or diagnostics
+  (define-key lsp-mode-map (kbd "M-s s") #'consult-lsp-symbols) ; Example custom binding
+  (define-key lsp-mode-map (kbd "M-s f") #'consult-lsp-file-symbols)
+  (define-key lsp-mode-map (kbd "M-s d") #'consult-lsp-diagnostics)
+  )
 
 (use-package pyvenv
   :config
@@ -842,92 +819,115 @@
   (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/.cache/undo"))))
 
 (defun dw/org-mode-setup ()
-      (org-indent-mode)
-      (variable-pitch-mode 1)
-      (auto-fill-mode 0)
-      (visual-line-mode 1)
-      (setq evil-auto-indent nil))
+       (org-indent-mode)
+       (variable-pitch-mode 1)
+       (auto-fill-mode 0)
+       (visual-line-mode 1)
+       (setq evil-auto-indent nil))
 
-    (use-package org
-      :hook (org-mode . dw/org-mode-setup)
-      :config
-      (setq org-ellipsis " ▾"
-            org-hide-emphasis-markers t))
+     (use-package org
+       ; :hook (org-mode . dw/org-mode-setup)
+       :config
+      ; (setq org-ellipsis " ▾" org-hide-emphasis-markers t)
+ 	  )
 
-    (use-package org-bullets
-      :after org
-      :hook (org-mode . org-bullets-mode)
-      :custom
-      (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+(use-package org-modern
+  :ensure t
+  :after org
+										; :hook (org-mode)
+  :config
+  (setq
+   ;; Edit settings
+   org-auto-align-tags nil
+   org-tags-column 0
+   org-catch-invisible-edits 'show-and-error
+   org-special-ctrl-a/e t
+   org-insert-heading-respect-content t
 
-    ;; Replace list hyphen with dot
-    (font-lock-add-keywords 'org-mode
-                            '(("^ *\\([-]\\) "
-                              (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+   ;; Org styling, hide markup etc.
+   org-hide-emphasis-markers t
+   org-pretty-entities t
+   org-agenda-tags-column 0
+   org-ellipsis "…")
+  (with-eval-after-load 'org (global-org-modern-mode))
+
+  ) 
+
+   ;  (use-package org-bullets
+   ;    :after org
+   ;    :hook (org-mode . org-bullets-mode)
+   ;    :custom
+   ;    (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+
+     ;; Replace List hyphen with dot
+    ; (font-lock-add-keywords 'org-mode
+    ;                         '(("^ *\\([-]\\) "
+    ;                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
 
 
-  ; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
-  ;                (org-level-2 . 1.1)
-  ;                (org-level-3 . 1.05)
-  ;                (org-level-4 . 1.0)
-  ;                (org-level-5 . 1.1)
-  ;                (org-level-6 . 1.1)
-  ;                (org-level-7 . 1.1)
-  ;                (org-level-8 . 1.1)))
-  ;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
+   ; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
+   ;                (org-level-2 . 1.1)
+   ;                (org-level-3 . 1.05)
+   ;                (org-level-4 . 1.0)
+   ;                (org-level-5 . 1.1)
+   ;                (org-level-6 . 1.1)
+   ;                (org-level-7 . 1.1)
+   ;                (org-level-8 . 1.1)))
+   ;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
 
-     (let* ((variable-tuple
-           (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
-                 ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
-                 ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
-                 ((x-list-fonts "Verdana")         '(:font "Verdana"))
-                 ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
-                 (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-          (base-font-color     (face-foreground 'default nil 'default))
-          (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
+  ;    (let* ((variable-tuple
+  ;          (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
+  ;                ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
+  ;                ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
+  ;                ((x-list-fonts "Verdana")         '(:font "Verdana"))
+  ;                ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
+  ;                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+  ;         (base-font-color     (face-foreground 'default nil 'default))
+  ;         (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
 
-     (custom-theme-set-faces
-      'user
-      `(org-level-8 ((t (,@headline ,@variable-tuple))))
-      `(org-level-7 ((t (,@headline ,@variable-tuple))))
-      `(org-level-6 ((t (,@headline ,@variable-tuple))))
-      `(org-level-5 ((t (,@headline ,@variable-tuple))))
-      `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
-      `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
-      `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
-      `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
-      `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
+  ;    (custom-theme-set-faces
+  ;     'user
+  ;     `(org-level-8 ((t (,@headline ,@variable-tuple))))
+  ;     `(org-level-7 ((t (,@headline ,@variable-tuple))))
+  ;     `(org-level-6 ((t (,@headline ,@variable-tuple))))
+  ;     `(org-level-5 ((t (,@headline ,@variable-tuple))))
+  ;     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
+  ;     `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
+  ;     `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
+  ;     `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
+  ;     `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
 
-    (custom-theme-set-faces
-   'user
-   '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
-   '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
-  (add-hook 'org-mode-hook 'variable-pitch-mode)
-    ;; Make sure org-indent face is available
-    (require 'org-indent)
-  (custom-theme-set-faces
-   'user
-   '(org-block ((t (:inherit fixed-pitch))))
-   '(org-code ((t (:inherit (shadow fixed-pitch)))))
-   '(org-document-info ((t (:foreground "dark orange"))))
-   '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
-   '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
-   '(org-link ((t (:foreground "royal blue" :underline t))))
-   '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-property-value ((t (:inherit fixed-pitch))) t)
-   '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
-   '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
-   '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
+  ;   (custom-theme-set-faces
+  ;  'user
+  ;  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
+  ;  '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
+  ; (add-hook 'org-mode-hook 'variable-pitch-mode)
+  ;   ;; Make sure org-indent face is available
+  ;   (require 'org-indent)
 
-;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
-;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
-;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
-;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
-;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
-;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
-;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
-;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
+  ; (custom-theme-set-faces
+  ;  'user
+  ;  '(org-block ((t (:inherit fixed-pitch))))
+  ;  '(org-code ((t (:inherit (shadow fixed-pitch)))))
+  ;  '(org-document-info ((t (:foreground "dark orange"))))
+  ;  '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+  ;  '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+  ;  '(org-link ((t (:foreground "royal blue" :underline t))))
+  ;  '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  ;  '(org-property-value ((t (:inherit fixed-pitch))) t)
+  ;  '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  ;  '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+  ;  '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+  ;  '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
+
+ ;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
+ ;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
+ ;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
+ ;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+ ;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+ ;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+ ;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+ ;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
 
 ;; Org Babel Configuration
   (org-babel-do-load-languages
@@ -1043,24 +1043,99 @@
     (nerd-icons-completion-mode)            ;; Activate nerd icons for completion interfaces.
     (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)) ;; setup marginalia
 
-(use-package catppuccin-theme
+(use-package gruvbox-theme
   :ensure t
-  :straight t
   :config
-  (custom-set-faces
-   ;; Set the color for changes in the diff highlighting to blue.
-   `(diff-hl-change ((t (:background unspecified :foreground ,(catppuccin-get-color 'blue))))))
+  (progn
+    (defvar after-load-theme-hook nil
+      "Hook run after a color theme is loaded using `load-theme'.")
+    (defadvice load-theme (after run-after-load-theme-hook activate)
+      "Run `after-load-theme-hook'."
+      (run-hooks 'after-load-theme-hook))
+    (defun customize-gruvbox ()
+      "Customize gruvbox theme"
+      (if (member 'gruvbox custom-enabled-themes)
+          (custom-theme-set-faces
+           'gruvbox
+           '(cursor                 ((t (:foreground "#928374"))))
+           '(org-block              ((t (:foreground "#ebdbb2":background "#1c2021" :extend t))))
+           '(org-block-begin-line   ((t (:inherit org-block :background "#1d2021" :foreground "#665c54" :extend t))))
+           '(org-block-end-line     ((t (:inherit org-block-begin-line))))
+           '(org-document-info      ((t (:foreground "#d5c4a1" :weight bold))))
+           '(org-document-info-keyword    ((t (:inherit shadow))))
+           '(org-document-title     ((t (:foreground "#fbf1c7" :weight bold :height 1.4))))
+           '(org-meta-line          ((t (:inherit shadow))))
+           '(org-target             ((t (:height 0.7 :inherit shadow))))
+           '(org-link               ((t (:foreground "#b8bb26" :background "#32302f" :overline nil))))  ;; 
+           '(org-indent             ((t (:inherit org-hide))))
+           '(org-indent             ((t (:inherit (org-hide fixed-pitch)))))
+           '(org-footnote           ((t (:foreground "#8ec07c" :background "#32302f" :overline nil))))
+           '(org-ref-cite-face      ((t (:foreground "#fabd2f" :background "#32302f" :overline nil))))  ;; 
+           '(org-ref-ref-face       ((t (:foreground "#83a598" :background "#32302f" :overline nil))))
+           '(org-ref-label-face     ((t (:inherit shadow :box t))))
+           '(org-drawer             ((t (:inherit shadow))))
+           '(org-property-value     ((t (:inherit org-document-info))) t)
+           '(org-tag                ((t (:inherit shadow))))
+           '(org-date               ((t (:foreground "#83a598" :underline t))))
+           '(org-verbatim           ((t (:inherit org-block :background "#3c3836" :foreground "#d5c4a1"))))
+           '(org-code               ((t (:inherit org-verbatim :background "#3c3836" :foreground "#fe8019"))))
+           '(org-quote              ((t (:inherit org-block :slant italic))))
+           '(org-level-1            ((t (:foreground "#83a598" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Blue
+           '(org-level-2            ((t (:foreground "#8ec07c" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Aqua
+           '(org-level-3            ((t (:foreground "#b8bb26" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Green
+           '(org-level-4            ((t (:foreground "#fabd2f" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Yellow
+           '(org-level-5            ((t (:foreground "#fe8019" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Orange
+           '(org-level-6            ((t (:foreground "#fb4934" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Red
+           '(org-level-7            ((t (:foreground "#d3869b" :background "#282828" :weight bold :height 1.1 :overline nil :extend t)))) ;; Blue
+           '(org-headline-done      ((t (:foreground "#928374" :background "#282828" :weight bold :overline nil :extend t)))) ;; Gray
+           '(org-ellipsis           ((t (:inherit shadow :height 1.0 :weight bold :extend t)))) 
+           '(org-table              ((t (:foreground "#d5c4a1" :background "#3c3836"))))
 
-  (custom-set-faces
-   ;; Set the color for deletions in the diff highlighting to red.
-   `(diff-hl-delete ((t (:background unspecified :foreground ,(catppuccin-get-color 'red))))))
+           ;; Doom-modeline settings
+           '(doom-modeline-evil-insert-state   ((t (:foreground "#b8bb26" :weight bold)))) ;; Green
+           '(doom-modeline-evil-emacs-state    ((t (:foreground "#b16286" :weight bold)))) ;; Purple
+           '(doom-modeline-evil-normal-state   ((t (:foreground "#83a598" :weight bold)))) ;; Blue
+           '(doom-modeline-evil-visual-state   ((t (:foreground "#fbf1c7" :weight bold)))) ;; Beige
+           '(doom-modeline-evil-replace-state  ((t (:foreground "#fb4934" :weight bold)))) ;; Red
+           '(doom-modeline-evil-operator-state ((t (:foreground "#fabd2f" :weight bold)))) ;; Yellow
+           '(mode-line                         ((t (:background "#504945" :foreground "#d5c4a1"))))
+           '(mode-line-inactive                ((t (:background "#3c3836" :foreground "#7c6f64"))))
+           '(link                              ((t (:foreground "#b8bb26" :overline t))))
 
-  (custom-set-faces
-   ;; Set the color for insertions in the diff highlighting to green.
-   `(diff-hl-insert ((t (:background unspecified :foreground ,(catppuccin-get-color 'green))))))
-
-  ;; Load the Catppuccin theme without prompting for confirmation.
-  (load-theme 'catppuccin :no-confirm))
+           '(line-number                       ((t (:background "#32302f" :foreground "#665c54"))))
+           ;; Mu4E mail client faces
+           '(mu4e-header-face                  ((t (:foreground "#d5c4a1" :background "#282828"))))
+           '(mu4e-replied-face                 ((t (:inherit mu4e-header-face :foreground "#b8bb26"))))
+           '(mu4e-draft-face                   ((t (:inherit mu4e-header-face :foreground "#fabd2f"))))
+           '(mu4e-link-face                    ((t (:inherit mu4e-face :foreground "#8ec07c" :underline t))))
+           '(mu4e-forwarded-face               ((t (:inherit mu4e-header-face :foreground "#80c07c"))))
+           '(mu4e-flagged-face                 ((t (:inherit mu4e-header-face))))
+           '(mu4e-header-highlight-face        ((t (:underline nil :background "#3c3836"))))
+           '(mu4e-unread-face                  ((t (:foreground "#fbf1c7" :weight bold))))  ;; Originally #83a598 
+           '(mu4e-cited-1-face                 ((t (:foreground "#458588" :slant italic))))
+           '(mu4e-cited-2-face                 ((t (:foreground "#689d6a" :slant italic))))
+           '(mu4e-cited-3-face                 ((t (:foreground "#98971a" :slant italic))))
+           '(mu4e-cited-4-face                 ((t (:foreground "#d79921" :slant italic))))
+           '(mu4e-cited-5-face                 ((t (:foreground "#d65d0e" :slant italic))))
+           '(mu4e-cited-6-face                 ((t (:foreground "#cc241d" :slant italic))))
+           '(mu4e-cited-7-face                 ((t (:foreground "#b16286" :slant italic))))
+           '(mu4e-cited-8-face                 ((t (:foreground "#458588" :slant italic))))
+           '(mu4e-cited-9-face                 ((t (:foreground "#689d6a" :slant italic))))
+           '(mu4e-cited-10-face                 ((t (:foreground "#98971a" :slant italic))))
+           '(mu4e-cited-11-face                 ((t (:foreground "#d79921" :slant italic))))
+           '(mu4e-cited-12-face                 ((t (:foreground "#d65d0e" :slant italic))))
+           '(mu4e-cited-13-face                 ((t (:foreground "#cc241d" :slant italic))))
+           '(mu4e-cited-14-face                 ((t (:foreground "#b16286" :slant italic))))
+           '(pdf-view-midnight-colors           '("#d5c4a1" . "#282828"))
+           )
+          (setq org-n-level-faces 8)
+        ) ;; test
+      )  
+    (add-hook 'after-load-theme-hook 'customize-gruvbox)
+    )
+    (load-theme 'gruvbox t) 
+    (enable-theme 'gruvbox)
+  )
 
 (defun ek/first-install ()
   "Install tree-sitter grammars and compile packages on first run..."
