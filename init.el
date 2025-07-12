@@ -1,34 +1,67 @@
 ;; Performance Hacks
-;; Emacs is an Elisp interpreter, and when running programs or packages,
-;; it can occasionally experience pauses due to garbage collection.
-;; By increasing the garbage collection threshold, we reduce these pauses
-;; during heavy operations, leading to smoother performance.
-(setq gc-cons-threshold #x40000000)
+    ;; Emacs is an Elisp interpreter, and when running programs or packages,
+    ;; it can occasionally experience pauses due to garbage collection.
+    ;; By increasing the garbage collection threshold, we reduce these pauses
+    ;; during heavy operations, leading to smoother performance.
+    (setq gc-cons-threshold #x40000000)
 
-;; Set the maximum output size for reading process output, allowing for larger data transfers.
+    ;; Set the maximum output size for reading process output, allowing for larger data transfers.
+    (setq read-process-output-max (* 1024 1024 4))
+
+    ;; Do I really need a speedy startup?
+    ;; Well, this config launches Emacs in about ~0.3 seconds,
+    ;; which, in modern terms, is a miracle considering how fast it starts
+    ;; with external packages.
+    ;; It wasn’t until the recent introduction of tools for lazy loading
+    ;; that a startup time of less than 20 seconds was even possible.
+    ;; Other fast startup methods were introduced over time.
+    ;; You may have heard of people running Emacs as a server,
+    ;; where you start it once and open multiple clients instantly connected to that server.
+    ;; Some even run Emacs as a systemd or sysV service, starting when the machine boots.
+    ;; While this is a great way of using Emacs, we WON’T be doing that here.
+    ;; I think 0.3 seconds is fast enough to avoid issues that could arise from
+    ;; running Emacs as a server, such as 'What version of Node is my LSP using?'.
+    ;; Again, this setup configures Emacs much like how a Vimmer would configure Neovim.
+
+    (let ((node-bin
+           (string-replace "/node\n" ""
+                           (shell-command-to-string ". $HOME/.nvm/nvm.sh && nvm which current"))))
+      (add-to-list 'exec-path node-bin)
+      (setenv "PATH"
+    		  (concat node-bin ":" (getenv "PATH"))))
+
+
+    ;; Set config for making dired work
+    
+
+  ;; Add this to the top of your file after the header
+
+  (setq user-emacs-file "~/.emacs.d/Emacs.org"
+        custom-file "~/.emacs.d/custom.el")
+
+  ;; Let's add a dedicated section for system-specific configurations
+  (defun ek-system-setup ()
+    "Configure Emacs based on the current operating system."
+    (interactive)
+    (let ((os (cond ((eq window-system 'ns) "macOS")
+                    )))
+      (if (string-match-p "macOS" os)
+          (progn
+            ;; macOS-specific configuration
+            (setq insert-directory-program "/opt/homebrew/bin/gls"))
+       ))
+    )
+
+;; Add this hook to run the system setup at startup
+(add-hook 'emacs-startup-hook #'ek-system-setup)
+
+;; Let's consolidate all similar config settings together
+(setq gc-cons-threshold #x40000000)  ;; Reduce GC pauses
+
+;; Set maximum buffer size for process output
 (setq read-process-output-max (* 1024 1024 4))
 
-;; Do I really need a speedy startup?
-;; Well, this config launches Emacs in about ~0.3 seconds,
-;; which, in modern terms, is a miracle considering how fast it starts
-;; with external packages.
-;; It wasn’t until the recent introduction of tools for lazy loading
-;; that a startup time of less than 20 seconds was even possible.
-;; Other fast startup methods were introduced over time.
-;; You may have heard of people running Emacs as a server,
-;; where you start it once and open multiple clients instantly connected to that server.
-;; Some even run Emacs as a systemd or sysV service, starting when the machine boots.
-;; While this is a great way of using Emacs, we WON’T be doing that here.
-;; I think 0.3 seconds is fast enough to avoid issues that could arise from
-;; running Emacs as a server, such as 'What version of Node is my LSP using?'.
-;; Again, this setup configures Emacs much like how a Vimmer would configure Neovim.
-
-(let ((node-bin
-     (string-replace "/node\n" ""
-                     (shell-command-to-string ". $HOME/.nvm/nvm.sh && nvm which current"))))
-(add-to-list 'exec-path node-bin)
-(setenv "PATH"
-      (concat node-bin ":" (getenv "PATH"))))
+;; Other global settings can go here, but let's keep them organized in sections
 
 ;; Emacs comes with a built-in package manager (`package.el'), and we'll use it
 ;; when it makes sense. However, `straight.el' is a bit more user-friendly and
@@ -78,6 +111,13 @@
   "Configuration for using Nerd Fonts Symbols."
   :type 'boolean
   :group 'appearance)
+  '(add-hook 'typescript-ts-mode-hook #'add-node-modules-path)
+(eval-after-load 'tsx-ts-mode
+  '(add-hook 'tsx-ts-mode-hook #'add-node-modules-path))
+(eval-after-load 'typescriptreact-mode
+  '(add-hook 'typescriptreact-mode-hook #'add-node-modules-path))
+(eval-after-load 'js-mode
+  '(add-hook 'js-mode-hook #'add-node-modules-path))
 
 
 ;; From now on, you'll see configurations using the `use-package` macro, which
@@ -199,42 +239,12 @@
   :ensure t
   :custom
   (when (memq window-system '(mac ns x))
-      (exec-path-from-shell-initialize))
+      (exec-path-from-shell-initialize)
+  (dolist (var '("MAGICK_HOME" "DYLD_LIBRARY_PATH" "PKG_CONFIG_PATH" "PYENV_ROOT"))
+  (add-to-list 'exec-path-from-shell-variables var))
+	  )
+
 )
-
-(use-package window
-  :ensure nil       ;; This is built-in, no need to fetch it.
-  :custom
-  (display-buffer-alist
-   '(
-     ;; ("\\*.*e?shell\\*"
-     ;;  (display-buffer-in-side-window)
-     ;;  (window-height . 0.25)
-     ;;  (side . bottom)
-     ;;  (slot . -1))
-
-     ("\\*\\(Backtrace\\|Warnings\\|Compile-Log\\|[Hh]elp\\|Messages\\|Bookmark List\\|Ibuffer\\|Occur\\|eldoc.*\\)\\*"
-      (display-buffer-in-side-window)
-      (window-height . 0.25)
-      (side . bottom)
-      (slot . 0))
-
-     ;; Example configuration for the LSP help buffer,
-     ;; keeps it always on bottom using 25% of the available space:
-     ("\\*\\(lsp-help\\)\\*"
-      (display-buffer-in-side-window)
-      (window-height . 0.25)
-      (side . bottom)
-      (slot . 0))
-
-     ;; Configuration for displaying various diagnostic buffers on
-     ;; bottom 25%:
-     ("\\*\\(Flymake diagnostics\\|xref\\|ivy\\|Swiper\\|Completions\\)"
-      (display-buffer-in-side-window)
-      (window-height . 0.25)
-      (side . bottom)
-      (slot . 1))
-     )))
 
 (use-package dired
   :ensure nil                                                ;; This is built-in, no need to fetch it.
@@ -252,83 +262,10 @@
       (when gls
         (setq insert-directory-program gls)))))
 
-(use-package isearch
-  :ensure nil                                  ;; This is built-in, no need to fetch it.
-  :config
-  (setq isearch-lazy-count t)                  ;; Enable lazy counting to show current match information.
-  (setq lazy-count-prefix-format "(%s/%s) ")   ;; Format for displaying current match count.
-  (setq lazy-count-suffix-format nil)          ;; Disable suffix formatting for match count.
-  (setq search-whitespace-regexp ".*?")        ;; Allow searching across whitespace.
-  :bind (("C-s" . isearch-forward)             ;; Bind C-s to forward isearch.
-         ("C-r" . isearch-backward)))          ;; Bind C-r to backward isearch.
-
-(use-package vc
-  :ensure nil                        ;; This is built-in, no need to fetch it.
-  :defer t
-  :bind
-  (("C-x v d" . vc-dir)              ;; Open VC directory for version control status.
-   ("C-x v =" . vc-diff)             ;; Show differences for the current file.
-   ("C-x v D" . vc-root-diff)        ;; Show differences for the entire repository.
-   ("C-x v v" . vc-next-action))     ;; Perform the next version control action.
-  :config
-  ;; Better colors for <leader> g b  (blame file)
-  (setq vc-annotate-color-map
-        '((20 . "#f5e0dc")
-          (40 . "#f2cdcd")
-          (60 . "#f5c2e7")
-          (80 . "#cba6f7")
-          (100 . "#f38ba8")
-          (120 . "#eba0ac")
-          (140 . "#fab387")
-          (160 . "#f9e2af")
-          (180 . "#a6e3a1")
-          (200 . "#94e2d5")
-          (220 . "#89dceb")
-          (240 . "#74c7ec")
-          (260 . "#89b4fa")
-          (280 . "#b4befe"))))
-
-(use-package smerge-mode
-  :ensure nil                                  ;; This is built-in, no need to fetch it.
-  :defer t
-  :bind (:map smerge-mode-map
-              ("C-c ^ u" . smerge-keep-upper)  ;; Keep the changes from the upper version.
-              ("C-c ^ l" . smerge-keep-lower)  ;; Keep the changes from the lower version.
-              ("C-c ^ n" . smerge-next)        ;; Move to the next conflict.
-              ("C-c ^ p" . smerge-previous)))  ;; Move to the previous conflict.
-
 (use-package eldoc
   :ensure nil          ;; This is built-in, no need to fetch it.
   :init
   (global-eldoc-mode))
-
-(use-package projectile
-  :ensure t
-  :init
-  ;; Enable projectile globally
-  (projectile-mode +1)
-  :config
-  ;; Set the project search paths (edit to your actual folders)
-  (setq projectile-project-search-path '("~/airbase/" "~/.emacs.d/"))
-  ;; Use default completion system (can be overridden by vertico, helm, etc.)
-  (setq projectile-completion-system 'vertico)
-  ;; Set a shorter mode line label
-  (setq projectile-mode-line-prefix " Proj")
-  ;; Faster indexing method (can also be 'alien or 'hybrid)
-  (setq projectile-indexing-method 'alien)
-  ;; Enable caching for performance
-  (setq projectile-enable-caching t)
-  ;; Optionally bind the keymap under C-c p
-  :bind-keymap
-  ("C-c p" . projectile-command-map))
-
-  ;; Ignore certain directories and files
-;;(projectile-globally-ignored-directories
- ;;  '(".idea" ".vscode" ".ensime_cache" ".eunit" ".git" ".hg" ".fslckout"
- ;;    "_FOSSIL_" ".bzr" "_darcs" ".tox" ".svn" ".stack-work" "node_modules"
- ;;    "build" "dist" "target" ".gradle"))
-
-;;(projectile-globally-ignored-files '("TAGS" "*.log" "*.tmp" "*.temp" "*.DS_Store"))
 
 (use-package which-key
   :ensure nil     ;; This is built-in, no need to fetch it.
@@ -375,25 +312,32 @@
   (after-init . marginalia-mode))
 
 (use-package consult
-  :ensure t
-  :straight t
-  :defer t
-  :init
-  ;; Enhance register preview with thin lines and no mode line.
-  (advice-add #'register-preview :override #'consult-register-window)
+         :ensure t
+         :straight t
+         :defer t
+         :init
+         ;; Enhance register preview with thin lines and no mode line.
+         (advice-add #'register-preview :override #'consult-register-window)
 
-  ;; Use Consult for xref locations with a preview feature.
-  (setq xref-show-xrefs-function #'consult-xref
-        xref-show-definitions-function #'consult-xref))
+         ;; Use Consult for xref locations with a preview feature.
+         (setq xref-show-xrefs-function #'consult-xref
+               xref-show-definitions-function #'consult-xref)
+
+	(setq consult-preview-key '(:debounce 0.5 any)) ;; 0.5s delay before preview triggers
+  	(consult-customize
+  	 consult--source-recent-file           ; For recent files (which are not necessarily open buffers)
+  	 :preview-key nil
+  	 )    
+  )
 
 (use-package embark
   :ensure t
   :straight t
-  :defer t
+  :after vertico
 
   :bind
   (("C-'" . embark-act)         ;; pick some comfortable binding
-   ("C-;" . embark-dwim)        ;; good alternative: M-.
+   ("C-;" . embark-export)        ;; good alternative: M-.
    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
 )
 
@@ -403,12 +347,15 @@
   :hook
   (embark-collect-mode . consult-preview-at-point-mode)) ;; Enable preview in Embark collect mode.
 
-(use-package yasnippet
+(use-package treesit-auto
   :ensure t
+  :straight t
+  :after emacs
+  :custom
+  (treesit-auto-install 'prompt)
   :config
-  (yas-global-mode 1)
-  (setq yas-snippet-dirs '("~/.emacs.d/snippets"))
-)
+  (treesit-auto-add-to-auto-mode-alist 'all)
+  (global-treesit-auto-mode t))
 
 (use-package markdown-mode
   :defer t
@@ -447,19 +394,6 @@
   :config
   (exec-path-from-shell-initialize))
 
-(use-package python
-   :ensure nil ; because python is built-in, no need to install
-   :bind
-   (:map python-mode-map
-         ("C-c C-p" . nil))
-   ) ; Unset C-c C-p in python-mode-map
-
-
-;   (use-package pet
-;     :ensure t
-;     :config
-;     (add-hook 'python-base-mode-hook 'pet-mode -10))
-
 (setenv "LSP_USE_PLISTS" "1")
       (use-package lsp-mode
         :ensure t
@@ -478,101 +412,120 @@
         :custom
         (setq lsp-use-plists t)
         (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
-        (lsp-inlay-hint-enable t)                             ;; Enable inlay hints.
+        ; (setq lsp-inlay-hint-enable nil)                             ;; Enable inlay hints.
 ;        (lsp-completion-provider :none)                       ;; Disable the default completion provider.
 ;        (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
 ;        (lsp-log-io nil)                                      ;; Disable IO logging for speed.
-;        (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
-;        (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
+        (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
+        (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
 ;        ;; Core settings
-;        (lsp-enable-xref t)                                   ;; Enable cross-references.
-;        (lsp-auto-configure t)                                ;; Automatically configure LSP.
-;        (lsp-enable-links nil)                                ;; Disable links.
-;        (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
-;        (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
-;        (lsp-enable-folding nil)                              ;; Disable folding.
-;        (lsp-enable-imenu t)                                  ;; Enable Imenu support.
-;        (lsp-enable-indentation nil)                          ;; Disable indentation.
-;        (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
-;        (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
-;        (lsp-enable-symbol-highlighting t)                    ;; Enable symbol highlighting.
-;        (lsp-enable-text-document-color nil)                  ;; Disable text document color.
+        (lsp-enable-xref t)                                   ;; Enable cross-references.
+        (lsp-auto-configure t)                                ;; Automatically configure LSP.
+        (lsp-enable-links nil)                                ;; Disable links.
+        (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
+        (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
+        (lsp-enable-folding nil)                              ;; Disable folding.
+        (lsp-enable-imenu t)                                  ;; Enable Imenu support.
+        (lsp-enable-indentation nil)                          ;; Disable indentation.
+        (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
+        (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
+        (lsp-enable-symbol-highlighting nil)                    ;; Enable symbol highlighting.
+        (lsp-enable-text-document-color nil)                  ;; Disable text document color.
 ;        ;; Modeline settings
-;        (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
-;        (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
-;        (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
-;        (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
-;        (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
+        (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
+        (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
+        (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
+        (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
+        (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
 ;        ;; Completion settings
-;        (lsp-completion-enable t)                             ;; Enable completion.
-;        (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
-;        (lsp-enable-snippet nil)                              ;; Disable snippets
-;        (lsp-completion-show-kind t)                          ;; Show kind in Lens.
+        (lsp-completion-enable t)                             ;; Enable completion.
+        (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
+        (lsp-enable-snippet nil)                              ;; Disable snippets
+        (lsp-completion-show-kind t)                          ;; Show kind in Lens.
 ;        ;; completions settings
-;        (lsp-lens-enable t)                                   ;; Enable lens support.
+        (lsp-lens-enable t)                                   ;; Enable lens support.
 ;        ;; Headerline settings
-;        (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
-;        (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
-;        (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
-;        (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
+        (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
+        (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
+        (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
+        (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
 ;        ;; Semantic settings
-;        (lsp-semantic-tokens-enable nil)
+        (lsp-semantic-tokens-enable nil)
         (setq lsp-restart 'auto-restart)
-        (setq lsp-enable-file-watchers nil)
-  	  )                     ;; Disable semantic tokens.
+  	 )                     ;; Disable semantic tokens.
 
 (use-package lsp-pyright
-    :ensure t
-    :after lsp-mode
-    :custom
-      (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
-    :hook (
-		   (python-mode . (lambda () (require 'lsp-pyright) (lsp)))
-          ;(python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
-		   )
-)
+              :ensure t
+              :after lsp-mode
+              :custom
+                (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
+              :hook (
+            		   ;(python-mode . (lambda () (require 'lsp-pyright) (lsp)))
+	      		   (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
+            		   )
 
-                   ; or lsp-deferred
+			 )
+	    (setq lsp-disabled-clients '(ty-ls semgrep-ls ruff))
 
-   ;(with-eval-after-load 'lsp-mode
-   ;  (setq lsp-language-id-configuration
-   ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-   ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
+(defun lsp-booster--advice-json-parse (old-fn &rest args)
+  "Try to parse bytecode instead of json."
+  (or
+   (when (equal (following-char) ?#)
+     (let ((bytecode (read (current-buffer))))
+       (when (byte-code-function-p bytecode)
+         (funcall bytecode))))
+   (apply old-fn args)))
+(advice-add (if (progn (require 'json)
+                       (fboundp 'json-parse-buffer))
+                'json-parse-buffer
+              'json-read)
+            :around
+            #'lsp-booster--advice-json-parse)
 
-(use-package consult-lsp
-  :ensure t
-  :after (lsp-mode consult)
-  :init
-  ;; Optional: Remap xref-find-apropos to consult-lsp-symbols
-  ;; This makes M-x xref-find-apropos (or its default binding, C-c C-d)
-  ;; use consult-lsp-symbols for workspace-wide symbol search.
-  (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)
-  ;; Other useful remappings for file symbols or diagnostics
-  (define-key lsp-mode-map (kbd "M-s s") #'consult-lsp-symbols) ; Example custom binding
-  (define-key lsp-mode-map (kbd "M-s f") #'consult-lsp-file-symbols)
-  (define-key lsp-mode-map (kbd "M-s d") #'consult-lsp-diagnostics)
-  )
+(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+  "Prepend emacs-lsp-booster command to lsp CMD."
+  (let ((orig-result (funcall old-fn cmd test?)))
+    (if (and (not test?)                             ;; for check lsp-server-present?
+             (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+             lsp-use-plists
+             (not (functionp 'json-rpc-connection))  ;; native json-rpc
+             (executable-find "emacs-lsp-booster"))
+        (progn
+          (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
+            (setcar orig-result command-from-exec-path))
+          (message "Using emacs-lsp-booster for %s!" orig-result)
+          (cons "emacs-lsp-booster" orig-result))
+      orig-result)))
+(advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
 
-(use-package pyvenv
-  :config
-  (pyvenv-mode 1))
+        (use-package python-pytest
+          :after python evil
+          :ensure t
+          :custom
+          (python-pytest-arguments
+           '("--color"          ;; colored output in the buffer
+             "--failed-first"   ;; run the previous failed tests first
+             "--maxfail=5"
+        	 "--pdb"
+           ))    ;; exit in 5 continuous failures in a run
+          :config
+          (which-key-declare-prefixes-for-mode 'python-mode "SPC pt" "Testing")
+          (evil-leader/set-key-for-mode 'python-mode
+            "ptp" 'python-pytest-popup
+            "ptt" 'python-pytest
+            "ptf" 'python-pytest-file
+            "ptF" 'python-pytest-file-dwim
+            "ptm" 'python-pytest-function
+            "ptM" 'python-pytest-function-dwim
+            "ptl" 'python-pytest-last-failed)
+          )
 
-(use-package diff-hl
-  :defer t
-  :straight t
-  :ensure t
-  :hook
-  (find-file . (lambda ()
-                 (global-diff-hl-mode)           ;; Enable Diff-HL mode for all files.
-                 (diff-hl-flydiff-mode)          ;; Automatically refresh diffs.
-                 (diff-hl-margin-mode)))         ;; Show diff indicators in the margin.
-  :custom
-  (diff-hl-side 'left)                           ;; Set the side for diff indicators.
-  (diff-hl-margin-symbols-alist '((insert . "│") ;; Customize symbols for each change type.
-                                  (delete . "-")
-                                  (change . "│")
-                                  (unknown . "?")
-                                  (ignored . "i"))))
+                             ; or lsp-deferred
+
+             ;(with-eval-after-load 'lsp-mode
+             ;  (setq lsp-language-id-configuration
+             ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
+             ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
 
 (use-package magit
   :ensure t
@@ -611,6 +564,30 @@
   (eval-after-load 'js-mode
     '(add-hook 'js-mode-hook #'add-node-modules-path)))
 
+(use-package undo-tree
+  :defer t
+  :ensure t
+  :straight t
+  :hook
+  (after-init . global-undo-tree-mode)
+  :init
+  (setq undo-tree-visualizer-timestamps t
+        undo-tree-visualizer-diff t
+        ;; Increase undo limits to avoid losing history due to Emacs' garbage collection.
+        ;; These values can be adjusted based on your needs.
+        ;; 10X bump of the undo limits to avoid issues with premature
+        ;; Emacs GC which truncates the undo history very aggressively.
+        undo-limit 800000                     ;; Limit for undo entries.
+        undo-strong-limit 12000000            ;; Strong limit for undo entries.
+        undo-outer-limit 120000000)           ;; Outer limit for undo entries.
+  :config
+  ;; Set the directory where `undo-tree' will save its history files.
+  ;; This keeps undo history across sessions, stored in a cache directory.
+  (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/.cache/undo"))))
+
+(use-package deadgrep
+  :ensure t)
+
 (use-package evil
   :ensure t
   :straight t
@@ -639,6 +616,7 @@
   (evil-define-key 'normal 'global (kbd "<leader> s G") 'consult-git-grep)
   (evil-define-key 'normal 'global (kbd "<leader> s r") 'consult-ripgrep)
   (evil-define-key 'normal 'global (kbd "<leader> s h") 'consult-info)
+  (evil-define-key 'normal 'global (kbd "<leader> s d") 'deadgrep)
   (evil-define-key 'normal 'global (kbd "<leader> /") 'consult-line)
 
   ;; Flymake navigation
@@ -797,27 +775,6 @@
   :config
   (global-evil-matchit-mode 1))
 
-(use-package undo-tree
-  :defer t
-  :ensure t
-  :straight t
-  :hook
-  (after-init . global-undo-tree-mode)
-  :init
-  (setq undo-tree-visualizer-timestamps t
-        undo-tree-visualizer-diff t
-        ;; Increase undo limits to avoid losing history due to Emacs' garbage collection.
-        ;; These values can be adjusted based on your needs.
-        ;; 10X bump of the undo limits to avoid issues with premature
-        ;; Emacs GC which truncates the undo history very aggressively.
-        undo-limit 800000                     ;; Limit for undo entries.
-        undo-strong-limit 12000000            ;; Strong limit for undo entries.
-        undo-outer-limit 120000000)           ;; Outer limit for undo entries.
-  :config
-  ;; Set the directory where `undo-tree' will save its history files.
-  ;; This keeps undo history across sessions, stored in a cache directory.
-  (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/.cache/undo"))))
-
 (defun dw/org-mode-setup ()
        (org-indent-mode)
        (variable-pitch-mode 1)
@@ -954,6 +911,115 @@
       (org-babel-tangle))))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+
+(use-package treemacs
+  :ensure t
+  :defer t
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :config
+  (progn
+    (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+          treemacs-deferred-git-apply-delay        0.5
+          treemacs-directory-name-transformer      #'identity
+          treemacs-display-in-side-window          t
+          treemacs-eldoc-display                   'simple
+          treemacs-file-event-delay                2000
+          treemacs-file-extension-regex            treemacs-last-period-regex-value
+          treemacs-file-follow-delay               0.2
+          treemacs-file-name-transformer           #'identity
+          treemacs-follow-after-init               t
+          treemacs-expand-after-init               t
+          treemacs-find-workspace-method           'find-for-file-or-pick-first
+          treemacs-git-command-pipe                ""
+          treemacs-goto-tag-strategy               'refetch-index
+          treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+          treemacs-hide-dot-git-directory          t
+          treemacs-indentation                     2
+          treemacs-indentation-string              " "
+          treemacs-is-never-other-window           nil
+          treemacs-max-git-entries                 5000
+          treemacs-missing-project-action          'ask
+          treemacs-move-files-by-mouse-dragging    t
+          treemacs-move-forward-on-expand          nil
+          treemacs-no-png-images                   nil
+          treemacs-no-delete-other-windows         t
+          treemacs-project-follow-cleanup          nil
+          treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+          treemacs-position                        'left
+          treemacs-read-string-input               'from-child-frame
+          treemacs-recenter-distance               0.1
+          treemacs-recenter-after-file-follow      nil
+          treemacs-recenter-after-tag-follow       nil
+          treemacs-recenter-after-project-jump     'always
+          treemacs-recenter-after-project-expand   'on-distance
+          treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+          treemacs-project-follow-into-home        nil
+          treemacs-show-cursor                     nil
+          treemacs-show-hidden-files               t
+          treemacs-silent-filewatch                nil
+          treemacs-silent-refresh                  nil
+          treemacs-sorting                         'alphabetic-asc
+          treemacs-select-when-already-in-treemacs 'move-back
+          treemacs-space-between-root-nodes        t
+          treemacs-tag-follow-cleanup              t
+          treemacs-tag-follow-delay                1.5
+          treemacs-text-scale                      nil
+          treemacs-user-mode-line-format           nil
+          treemacs-user-header-line-format         nil
+          treemacs-wide-toggle-width               70
+          treemacs-width                           35
+          treemacs-width-increment                 1
+          treemacs-width-is-initially-locked       t
+          treemacs-workspace-switch-cleanup        nil)
+
+    ;; The default width and height of the icons is 22 pixels. If you are
+    ;; using a Hi-DPI display, uncomment this to double the icon size.
+    ;;(treemacs-resize-icons 44)
+
+    (treemacs-follow-mode t)
+    (treemacs-filewatch-mode t)
+    (treemacs-fringe-indicator-mode 'always)
+    (when treemacs-python-executable
+      (treemacs-git-commit-diff-mode t))
+
+    (pcase (cons (not (null (executable-find "git")))
+                 (not (null treemacs-python-executable)))
+      (`(t . t)
+       (treemacs-git-mode 'deferred))
+      (`(t . _)
+       (treemacs-git-mode 'simple)))
+
+    (treemacs-hide-gitignored-files-mode nil))
+  :bind
+  (:map global-map
+        ("M-0"       . treemacs-select-window)
+        ("C-x t 1"   . treemacs-delete-other-windows)
+        ("C-x t t"   . treemacs)
+        ("C-x t d"   . treemacs-select-directory)
+        ("C-x t B"   . treemacs-bookmark)
+        ("C-x t C-t" . treemacs-find-file)
+        ("C-x t M-t" . treemacs-find-tag)))
+
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :ensure t)
+
+(use-package treemacs-icons-dired
+  :hook (dired-mode . treemacs-icons-dired-enable-once)
+  :ensure t)
+
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :ensure t)
+
+(use-package treemacs-tab-bar ;;treemacs-tab-bar if you use tab-bar-mode
+  :after (treemacs)
+  :ensure t
+  :config (treemacs-set-scope-type 'Tabs))
+
+(treemacs-start-on-boot)
 
 (use-package rainbow-delimiters
   :defer t
@@ -1137,6 +1203,11 @@
     (enable-theme 'gruvbox)
   )
 
+(use-package rose-pine-theme
+:straight (rose-pine-theme :type git :host github :repo "konrad1977/pinerose-emacs")
+:config
+(load-theme 'rose-pine-theme t))
+
 (defun ek/first-install ()
   "Install tree-sitter grammars and compile packages on first run..."
   (interactive)                                      ;; Allow this function to be called interactively.
@@ -1188,24 +1259,20 @@
             (message "Activated UV Python environment at %s" venv-path))
         (error "No UV Python environment found in %s" project-root))))
 
-(use-package flycheck
-    :ensure t
-    :config
-    (add-hook 'after-init-hook #'global-flycheck-mode))
+(use-package gptel
+  :ensure t
+  :config
+  ;; Define the Gemini backend
+  (gptel-make-gemini "Gemini" :stream t :key (gptel-api-key-from-auth-source "generativelanguage.googleapis.com")
 
-(flycheck-define-checker python-ty
-     "A Python syntax and type checker using ty."
-     :command ("ty" "check" source-original)
-     :error-patterns
-     ((error line-start (file-name) ":" line ":" column ": error: " (message) line-end))
-     :modes python-mode)
+  ;; Set Gemini as your default backend
+  (setq gptel-default-backend 'Gemini)
+  )
 
-
-(add-to-list 'flycheck-checkers 'python-ty)
-
-(add-hook 'python-mode-hook
-          (lambda ()
-            (setq-local flycheck-checker 'python-ty)))
-
-
-(provide 'init)
+(use-package aidermacs
+  :bind (("C-c a" . aidermacs-transient-menu))
+  :config
+  :custom
+  ; See the Configuration section below
+  (aidermacs-default-chat-mode 'architect)
+  (aidermacs-default-model "ollama_chat/deepseek-r1:8b"))
