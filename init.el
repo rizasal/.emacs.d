@@ -362,10 +362,7 @@
                  xref-show-definitions-function #'consult-xref)
 
   	;; (setq consult-preview-key 'any) ;; 0.5s delay before preview triggers
-    	(consult-customize
-    	 consult--source-recent-file           ; For recent files (which are not necessarily open buffers)
-    	 :preview-key nil
-    	 )    
+    ;;	(consult-customize consult--source-recent-file           ; For recent files (which are not necessarily open buffers) :preview-key nil)    
     )
 (with-eval-after-load 'consult
   (add-to-list 'consult-preview-variables '(treesit-auto-mode . nil)))
@@ -405,29 +402,62 @@
   :mode ("README\\.md\\'" . gfm-mode)            ;; Use gfm-mode for README.md files.
   :init (setq markdown-command "multimarkdown")) ;; Set the Markdown processing command.
 
-(use-package company
-  :defer t
-  :straight t
-  :ensure t
-  :custom
-  (company-tooltip-align-annotations t)      ;; Align annotations with completions.
-  (company-minimum-prefix-length 1)          ;; Trigger completion after typing 1 character
-  (company-idle-delay 0.2)                   ;; Delay before showing completion (adjust as needed)
-  (company-tooltip-maximum-width 50)
-  :config
+(setq use-company nil)
 
-  ;; While using C-p C-n to select a completion candidate
-  ;; C-y quickly shows help docs for the current candidate
-  (define-key company-active-map (kbd "C-y")
-              (lambda ()
-                (interactive)
-                (company-show-doc-buffer)))
-  (define-key company-active-map [tab] 'company-complete-selection)
-  (define-key company-active-map (kbd "TAB") 'company-complete-selection)
-  (define-key company-active-map [ret] 'company-complete-selection)
-  (define-key company-active-map (kbd "RET") 'company-complete-selection)
-  :hook
-  (after-init . global-company-mode)) ;; Enable Company Mode globally after initialization.
+(when use-company
+    (use-package company
+      :defer t
+      :straight t
+      :ensure t
+      :custom
+      (company-tooltip-align-annotations t)      ;; Align annotations with completions.
+      (company-minimum-prefix-length 1)          ;; Trigger completion after typing 1 character
+      (company-idle-delay 0.2)                   ;; Delay before showing completion (adjust as needed)
+      (company-tooltip-maximum-width 50)
+      :config
+
+      ;; While using C-p C-n to select a completion candidate
+      ;; C-y quickly shows help docs for the current candidate
+      (define-key company-active-map (kbd "C-y")
+                  (lambda ()
+                    (interactive)
+                    (company-show-doc-buffer)))
+      (define-key company-active-map [tab] 'company-complete-selection)
+      (define-key company-active-map (kbd "TAB") 'company-complete-selection)
+      (define-key company-active-map [ret] 'company-complete-selection)
+      (define-key company-active-map (kbd "RET") 'company-complete-selection)
+      :hook
+      (after-init . global-company-mode))) ;; Enable Company Mode globally after initialization.
+
+  (unless use-company
+    (use-package corfu
+	  :defer t
+	  :straight t
+	  :ensure t
+      ;; Optional customizations
+      :custom
+      (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+      (corfu-auto t)                 ;; Enable auto completion
+      (corfu-separator ?\s)          ;; Orderless field separator
+      (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+      (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+      (corfu-preview-current nil)    ;; Disable current candidate preview
+      ;; (corfu-preselect-first nil)    ;; Disable candidate preselection
+      ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+      ;; (corfu-echo-documentation nil) ;; Disable documentation in the echo area
+      (corfu-scroll-margin 5)        ;; Use scroll margin
+      ;; Enable Corfu only for certain modes.
+      :hook ((prog-mode . corfu-mode)
+             (shell-mode . corfu-mode)
+             (eshell-mode . corfu-mode))
+      ;; Recommended: Enable Corfu globally.
+      ;; This is recommended since Dabbrev can be used globally (M-/).
+      ;; See also `corfu-excluded-modes'.
+      :init
+      (global-corfu-mode) ; This does not play well in eshell if you run a repl
+      (setq corfu-auto t)))
+    ;(define-key corfu-map (kbd "M-p") #'corfu-popupinfo-scroll-down) ;; corfu-next
+    ;(define-key corfu-map (kbd "M-n") #'corfu-popupinfo-scroll-up))  ;; corfu-previous
 
 (setq scroll-preserve-screen-position 'always)
   (setq mouse-wheel-follow-mouse 'nil)
@@ -477,8 +507,11 @@
 	)
   :config
   (add-to-list 'eglot-server-programs
-           '(python-mode . ("pyrefly" "lsp")))
-)
+           '(python-mode .
+		("basedpyright-langserver" "--stdio")
+		;;("pyrefly" "lsp")
+		 )
+))
   (use-package eglot-booster
 	:after eglot
 	:config	(eglot-booster-mode) (eglot-booster-io-only))
@@ -531,23 +564,6 @@
                                      :prompt "Tag: "
                                      :require-match t)))
       (find-tag selection))))
-
-(use-package diff-hl
-  :defer t
-  :straight t
-  :ensure t
-  :hook
-  (find-file . (lambda ()
-                 (global-diff-hl-mode)           ;; Enable Diff-HL mode for all files.
-                 (diff-hl-flydiff-mode)          ;; Automatically refresh diffs.
-                 (diff-hl-margin-mode)))         ;; Show diff indicators in the margin.
-  :custom
-  (diff-hl-side 'left)                           ;; Set the side for diff indicators.
-  (diff-hl-margin-symbols-alist '((insert . "│") ;; Customize symbols for each change type.
-                                  (delete . "-")
-                                  (change . "│")
-                                  (unknown . "?")
-                                  (ignored . "i"))))
 
 (use-package magit
   :ensure t
