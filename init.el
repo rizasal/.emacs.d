@@ -461,141 +461,38 @@
   :config
   (setq dumb-jump-force-searcher 'rg))  ; optionally use ripgrep for speed
 
-(use-package lsp-jedi
-       :disable t
-      :ensure t)
-    (setq lsp-disabled-clients '(ty-ls semgrep-ls ruff pylsp))
-    (defun lsp-booster--advice-json-parse (old-fn &rest args)
-      "Try to parse bytecode instead of json."
-      (or
-       (when (equal (following-char) ?#)
-         (let ((bytecode (read (current-buffer))))
-           (when (byte-code-function-p bytecode)
-             (funcall bytecode))))
-       (apply old-fn args)))
-    (advice-add (if (progn (require 'json)
-                           (fboundp 'json-parse-buffer))
-                    'json-parse-buffer
-                  'json-read)
-                :around
-                #'lsp-booster--advice-json-parse)
-
-    (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-      "Prepend emacs-lsp-booster command to lsp CMD."
-      (let ((orig-result (funcall old-fn cmd test?)))
-        (if (and (not test?)                             ;; for check lsp-server-present?
-                 (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-                 lsp-use-plists
-                 (not (functionp 'json-rpc-connection))  ;; native json-rpc
-                 (executable-find "emacs-lsp-booster"))
-            (progn
-              (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
-                (setcar orig-result command-from-exec-path))
-              (message "Using emacs-lsp-booster for %s!" orig-result)
-              (cons "emacs-lsp-booster" orig-result))
-          orig-result)))
-    (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
-
-            (use-package python-pytest
-              :after python evil
-              :ensure t
-              :custom
-              (python-pytest-arguments
-               '("--color"          ;; colored output in the buffer
-                 "--failed-first"   ;; run the previous failed tests first
-                 "--maxfail=5"
-            	 "--pdb"
-               ))    ;; exit in 5 continuous failures in a run
-              :config
-              (which-key-declare-prefixes-for-mode 'python-mode "SPC pt" "Testing")
-              (evil-leader/set-key-for-mode 'python-mode
-                "ptp" 'python-pytest-popup
-                "ptt" 'python-pytest
-                "ptf" 'python-pytest-file
-                "ptF" 'python-pytest-file-dwim
-                "ptm" 'python-pytest-function
-                "ptM" 'python-pytest-function-dwim
-                "ptl" 'python-pytest-last-failed)
-              )
-
-(use-package eglot
-  :ensure t
-  :hook ((python-mode python-ts-mode) . eglot-ensure)
-  :config
-  (add-to-list 'eglot-server-programs
-    `((python-ts-mode python-mode) . ("pyrefly" "lsp"))))
-                                 ; or lsp-deferred
-
-                 ;(with-eval-after-load 'lsp-mode
-                 ;  (setq lsp-language-id-configuration
-                 ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-                 ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
-
 (custom-set-faces
  '(flycheck-error ((t (:underline (:style dots :color "Red1")))))
  '(flycheck-warning ((t (:underline (:style dots :color "DarkOrange")))))
  '(flycheck-info ((t (:underline (:style dots :color "DeepSkyBlue")))))
  )
 
-(use-package lsp-ui
+;; Eglot with Pyright (LSP for Python)
+(use-package eglot
   :ensure t
-  :after (lsp-mode)
-  :commands lsp-ui-doc-hide
-  :bind (:map lsp-ui-mode-map
-     ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
-     ([remap xref-find-references] . lsp-ui-peek-find-references)
-     ("C-c u" . lsp-ui-imenu))
-  :init (setq lsp-ui-doc-enable t
-     lsp-ui-doc-use-webkit nil
-     lsp-ui-doc-header nil
-     lsp-ui-doc-delay 0.2
-     lsp-ui-doc-include-signature t
-     lsp-ui-doc-alignment 'at-point
-     lsp-ui-doc-use-childframe nil
-     lsp-ui-doc-border (face-foreground 'default)
-     lsp-ui-peek-enable t
-     lsp-ui-peek-show-directory t
-     lsp-ui-sideline-update-mode 'line
-     lsp-ui-sideline-enable t
-     lsp-ui-sideline-show-code-actions t
-     lsp-ui-sideline-show-hover nil
-     lsp-ui-sideline-ignore-duplicate t)
+  :defer t
+  :hook (
+		 (python-mode . eglot-ensure)
+         (python-ts-mode . eglot-ensure)
+	)
   :config
-  (add-to-list 'lsp-ui-doc-frame-parameters '(right-fringe . 8))
+  (add-to-list 'eglot-server-programs
+           '(python-mode . ("pyrefly" "lsp")))
+)
+  (use-package eglot-booster
+	:after eglot
+	:config	(eglot-booster-mode) (eglot-booster-io-only))
 
-  ;; `C-g'to close doc
-  (advice-add #'keyboard-quit :before #'lsp-ui-doc-hide)
 
-  ;; Reset `lsp-ui-doc-background' after loading theme
-  (add-hook 'after-load-theme-hook
-   (lambda ()
-     (setq lsp-ui-doc-border (face-foreground 'default))
-     (set-face-background 'lsp-ui-doc-background
-              (face-background 'tooltip))))
-
-  ;; WORKAROUND Hide mode-line of the lsp-ui-imenu buffer
-  ;; @see https://github.com/emacs-lsp/lsp-ui/issues/243
-  (defadvice lsp-ui-imenu (after hide-lsp-ui-imenu-mode-line activate)
-    (setq mode-line-format nil)))
-
-(use-package consult-lsp
-  :ensure t
-  :after (lsp-mode consult)
-  :init
-  ;; Optional: Remap xref-find-apropos to consult-lsp-symbols
-  ;; This makes M-x xref-find-apropos (or its default binding, C-c C-d)
-  ;; use consult-lsp-symbols for workspace-wide symbol search.
-  (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)
-  ;; Other useful remappings for file symbols or diagnostics
-  (define-key lsp-mode-map (kbd "M-s s") #'consult-lsp-symbols) ; Example custom binding
-  (define-key lsp-mode-map (kbd "M-s f") #'consult-lsp-file-symbols)
-  (define-key lsp-mode-map (kbd "M-s d") #'consult-lsp-diagnostics)
-  )
+(use-package consult-eglot
+:ensure t
+:after (consult eglot)
+:bind
+(("C-c e s" . consult-eglot-symbols)))
 
 (use-package flymake-ruff
   :hook (python-mode . flymake-ruff-load)
   )
-
 
   
   (defun my/ruff-format-buffer ()
@@ -1216,19 +1113,6 @@
     (setq doom-modeline-icon nil))                     ;; Disable icons if nerd fonts are not being used.
   :hook
   (after-init . doom-modeline-mode))
-
-(use-package neotree
-  :ensure t
-  :straight t
-  :custom
-  (neo-show-hidden-files t)                ;; By default shows hidden files (toggle with H)
-  (neo-theme 'nerd)                        ;; Set the default theme for Neotree to 'nerd' for a visually appealing look.
-  (neo-vc-integration '(face char))        ;; Enable VC integration to display file states with faces (color coding) and characters (icons).
-  :defer t                                 ;; Load the package only when needed to improve startup time.
-  :config
-  (if ek-use-nerd-fonts                    ;; Check if nerd fonts are being used.
-      (setq neo-theme 'nerd-icons)         ;; Set the theme to 'nerd-icons' if nerd fonts are available.
-    (setq neo-theme 'nerd)))               ;; Otherwise, fall back to the 'nerd' theme.
 
 (use-package nerd-icons
   :if ek-use-nerd-fonts                   ;; Load the package only if the user has configured to use nerd fonts.

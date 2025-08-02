@@ -818,199 +818,6 @@ to use GitHub Flavored Markdown for enhanced compatibility.
 
 
 
-* LSP
-Emacs comes with an integrated LSP client called `eglot', which offers basic LSP functionality.
- However, `eglot' has limitations, such as not supporting multiple language servers
- simultaneously within the same buffer (e.g., handling both TypeScript, Tailwind and ESLint
- LSPs together in a React project). For this reason, the more mature and capable
- `lsp-mode' is included as a third-party package, providing advanced IDE-like features
- and better support for multiple language servers and configurations.
-
- NOTE: To install or reinstall an LSP server, use `M-x install-server RET`.
-       As with other editors, LSP configurations can become complex. You may need to
-       install or reinstall the server for your project due to version management quirks
-       (e.g., asdf or nvm) or other issues.
-       Fortunately, `lsp-mode` has a great resource site:
-       https://emacs-lsp.github.io/lsp-mode/
-#+begin_src emacs-lisp :tangle no
-      (setenv "LSP_USE_PLISTS" "1")
-        (use-package lsp-mode
-          :ensure t
-  		:disabled t
-          :straight t
-  		:after dumb-jump
-          :defer t
-          :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
-                 (bash-ts-mode . lsp-deferred)                           ;; Enable LSP for Bash
-                 (typescript-ts-mode . lsp-deferred)                     ;; Enable LSP for TypeScript
-                 (tsx-ts-mode . lsp-deferred)                            ;; Enable LSP for TSX
-                 (js-mode . lsp-deferred)                                ;; Enable LSP for JavaScript
-                 (python-mode . lsp-deferred)                                ;; Enable LSP for Python
-                 (python-ts-mode . lsp-deferred)                                ;; Enable LSP for Python (ts mode)
-                 (js-ts-mode . lsp-deferred)                             ;; Enable LSP for JavaScript (TS mode)
-                 (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
-          :commands (lsp-deferred)
-          :custom
-          (setq lsp-use-plists t)
-          (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
-          ; (setq lsp-inlay-hint-enable nil)                             ;; Enable inlay hints.
-  ;        (lsp-completion-provider :none)                       ;; Disable the default completion provider.
-  ;        (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
-  ;        (lsp-log-io nil)                                      ;; Disable IO logging for speed.
-          (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
-          (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
-  ;        ;; Core settings
-          (lsp-enable-xref t)                                   ;; Enable cross-references.
-          (lsp-auto-configure t)                                ;; Automatically configure LSP.
-          (lsp-enable-links nil)                                ;; Disable links.
-          (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
-          (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
-          (lsp-enable-folding nil)                              ;; Disable folding.
-          (lsp-enable-imenu t)                                  ;; Enable Imenu support.
-          (lsp-enable-indentation nil)                          ;; Disable indentation.
-          (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
-          (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
-          (lsp-enable-symbol-highlighting nil)                    ;; Enable symbol highlighting.
-          (lsp-enable-text-document-color t)                  ;; Disable text document color.
-  	    (lsp-format-buffer-on-save-list '(org-mode))
-  ;        ;; Modeline settings
-          (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
-          (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
-          (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
-          (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
-          (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
-  ;        ;; Completion settings
-          (lsp-completion-enable t)                             ;; Enable completion.
-          (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
-          (lsp-enable-snippet nil)                              ;; Disable snippets
-          (lsp-completion-show-kind t)                          ;; Show kind in Lens.
-  ;        ;; completions settings
-          (lsp-lens-enable t)                                   ;; Enable lens support.
-  ;        ;; Headerline settings
-          (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
-          (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
-          (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
-          (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
-  ;        ;; Semantic settings
-          (lsp-semantic-tokens-enable nil)
-          (setq lsp-restart 'auto-restart)
-  	  (custom-set-faces
-  		'(lsp-face-diagnostic-error ((t (:underline (:style line :color "Red1")))))
-  		'(lsp-face-diagnostic-warning ((t (:underline (:style line :color "Orange")))))
-  		'(lsp-face-diagnostic-info ((t (:underline (:style line :color "DodgerBlue")))))
-  		'(lsp-face-diagnostic-hint ((t (:underline (:style line :color "LightGrey"))))))
-  	  )
-
-    #+end_src
-
-
-
-
-    * LSP Additional Servers
-    You can extend `lsp-mode' by integrating additional language servers for specific
- technologies. For example, `lsp-tailwindcss' provides support for Tailwind CSS
- classes within your HTML files. By using various LSP packages, you can connect
- multiple LSP servers simultaneously, enhancing your coding experience across
- different languages and frameworks.
-
-#+begin_src emacs-lisp :tangle no
-     (use-package lsp-pyright
-       :ensure t
-       :disable t
-       :after lsp-mode
-       :custom
-         (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
-       :hook (
-     		   ;(python-mode . (lambda () (require 'lsp-pyright) (lsp)))
-    	   (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp-deferred)))
-     		   )
-    )
-  (with-eval-after-load 'lsp-mode
-    (lsp-register-client
-     (make-lsp-client
-      :new-connection (lsp-stdio-connection '("pyrefly" "lsp"))
-      :major-modes '(python-mode python-ts-mode)
-      :server-id 'pyrefly
-      :priority 1
-      :initialization-options '(:settings (:autoImportCompletions t)))))
-
-  (setq lsp-disabled-clients '(pyright pylsp basedpyright ty-ls ruff)) ;; Disable others
-  (setq lsp-enabled-clients '(pyrefly))
-
-  #+end_src
-
-  #+begin_src emacs-lisp
-     (use-package lsp-jedi
-       :disable t
-      :ensure t)
-    (setq lsp-disabled-clients '(ty-ls semgrep-ls ruff pylsp))
-    (defun lsp-booster--advice-json-parse (old-fn &rest args)
-      "Try to parse bytecode instead of json."
-      (or
-       (when (equal (following-char) ?#)
-         (let ((bytecode (read (current-buffer))))
-           (when (byte-code-function-p bytecode)
-             (funcall bytecode))))
-       (apply old-fn args)))
-    (advice-add (if (progn (require 'json)
-                           (fboundp 'json-parse-buffer))
-                    'json-parse-buffer
-                  'json-read)
-                :around
-                #'lsp-booster--advice-json-parse)
-
-    (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-      "Prepend emacs-lsp-booster command to lsp CMD."
-      (let ((orig-result (funcall old-fn cmd test?)))
-        (if (and (not test?)                             ;; for check lsp-server-present?
-                 (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-                 lsp-use-plists
-                 (not (functionp 'json-rpc-connection))  ;; native json-rpc
-                 (executable-find "emacs-lsp-booster"))
-            (progn
-              (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
-                (setcar orig-result command-from-exec-path))
-              (message "Using emacs-lsp-booster for %s!" orig-result)
-              (cons "emacs-lsp-booster" orig-result))
-          orig-result)))
-    (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
-
-            (use-package python-pytest
-              :after python evil
-              :ensure t
-              :custom
-              (python-pytest-arguments
-               '("--color"          ;; colored output in the buffer
-                 "--failed-first"   ;; run the previous failed tests first
-                 "--maxfail=5"
-            	 "--pdb"
-               ))    ;; exit in 5 continuous failures in a run
-              :config
-              (which-key-declare-prefixes-for-mode 'python-mode "SPC pt" "Testing")
-              (evil-leader/set-key-for-mode 'python-mode
-                "ptp" 'python-pytest-popup
-                "ptt" 'python-pytest
-                "ptf" 'python-pytest-file
-                "ptF" 'python-pytest-file-dwim
-                "ptm" 'python-pytest-function
-                "ptM" 'python-pytest-function-dwim
-                "ptl" 'python-pytest-last-failed)
-              )
-
-(use-package eglot
-  :ensure t
-  :hook ((python-mode python-ts-mode) . eglot-ensure)
-  :config
-  (add-to-list 'eglot-server-programs
-    `((python-ts-mode python-mode) . ("pyrefly" "lsp"))))
-                                 ; or lsp-deferred
-
-                 ;(with-eval-after-load 'lsp-mode
-                 ;  (setq lsp-language-id-configuration
-                 ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-                 ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
-#+end_src
-
 * Flycheck faces
 
 #+begin_src emacs-lisp
@@ -1022,97 +829,31 @@ Emacs comes with an integrated LSP client called `eglot', which offers basic LSP
 
 #+end_src
 
-* LSP UI
-
-#+BEGIN_SRC emacs-lisp
-
-(use-package lsp-ui
-  :ensure t
-  :after (lsp-mode)
-  :commands lsp-ui-doc-hide
-  :bind (:map lsp-ui-mode-map
-     ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
-     ([remap xref-find-references] . lsp-ui-peek-find-references)
-     ("C-c u" . lsp-ui-imenu))
-  :init (setq lsp-ui-doc-enable t
-     lsp-ui-doc-use-webkit nil
-     lsp-ui-doc-header nil
-     lsp-ui-doc-delay 0.2
-     lsp-ui-doc-include-signature t
-     lsp-ui-doc-alignment 'at-point
-     lsp-ui-doc-use-childframe nil
-     lsp-ui-doc-border (face-foreground 'default)
-     lsp-ui-peek-enable t
-     lsp-ui-peek-show-directory t
-     lsp-ui-sideline-update-mode 'line
-     lsp-ui-sideline-enable t
-     lsp-ui-sideline-show-code-actions t
-     lsp-ui-sideline-show-hover nil
-     lsp-ui-sideline-ignore-duplicate t)
-  :config
-  (add-to-list 'lsp-ui-doc-frame-parameters '(right-fringe . 8))
-
-  ;; `C-g'to close doc
-  (advice-add #'keyboard-quit :before #'lsp-ui-doc-hide)
-
-  ;; Reset `lsp-ui-doc-background' after loading theme
-  (add-hook 'after-load-theme-hook
-   (lambda ()
-     (setq lsp-ui-doc-border (face-foreground 'default))
-     (set-face-background 'lsp-ui-doc-background
-              (face-background 'tooltip))))
-
-  ;; WORKAROUND Hide mode-line of the lsp-ui-imenu buffer
-  ;; @see https://github.com/emacs-lsp/lsp-ui/issues/243
-  (defadvice lsp-ui-imenu (after hide-lsp-ui-imenu-mode-line activate)
-    (setq mode-line-format nil)))
-
-#+end_src
-
-* LSP Consult
-#+begin_src emacs-lisp  
-  (use-package consult-lsp
-    :ensure t
-    :after (lsp-mode consult)
-    :init
-    ;; Optional: Remap xref-find-apropos to consult-lsp-symbols
-    ;; This makes M-x xref-find-apropos (or its default binding, C-c C-d)
-    ;; use consult-lsp-symbols for workspace-wide symbol search.
-    (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)
-    ;; Other useful remappings for file symbols or diagnostics
-    (define-key lsp-mode-map (kbd "M-s s") #'consult-lsp-symbols) ; Example custom binding
-    (define-key lsp-mode-map (kbd "M-s f") #'consult-lsp-file-symbols)
-    (define-key lsp-mode-map (kbd "M-s d") #'consult-lsp-diagnostics)
-    )
-#+end_src
-* LSP Bridge
-#+begin_src emacs-lisp :tangle no
-(use-package lsp-bridge
-  :straight '(lsp-bridge :type git :host github :repo "manateelazycat/lsp-bridge"
-            :files (:defaults "*.el" "*.py" "acm" "core" "langserver" "multiserver" "resources")
-            :build (:not compile))
-  :init
-  (global-lsp-bridge-mode))
-#+end_src
 * Eglot
 
-#+BEGIN_SRC emacs-lisp :tangle no
-
+#+BEGIN_SRC emacs-lisp 
    ;; Eglot with Pyright (LSP for Python)
   (use-package eglot
     :ensure t
     :defer t
-    :hook ((python-mode . eglot-ensure)
+    :hook (
+  		 (python-mode . eglot-ensure)
            (python-ts-mode . eglot-ensure)
-           (go-mode . eglot-ensure)
-           (go-ts-mode . eglot-ensure))
+  	)
     :config
     (add-to-list 'eglot-server-programs
-             '(python-mode . ("basedpyright-langserver" "--stdio")))
+             '(python-mode . ("pyrefly" "lsp")))
   )
     (use-package eglot-booster
   	:after eglot
-  	:config	(eglot-booster-mode))
+  	:config	(eglot-booster-mode) (eglot-booster-io-only))
+
+
+  (use-package consult-eglot
+  :ensure t
+  :after (consult eglot)
+  :bind
+  (("C-c e s" . consult-eglot-symbols)))
 #+END_SRC
 
 * Flymake + Format
@@ -1122,7 +863,6 @@ Emacs comes with an integrated LSP client called `eglot', which offers basic LSP
     :hook (python-mode . flymake-ruff-load)
     )
 
-  
     
     (defun my/ruff-format-buffer ()
     "Format current buffer with ruff."
@@ -1131,14 +871,6 @@ Emacs comes with an integrated LSP client called `eglot', which offers basic LSP
 
   ;; (define-key python-mode-map (kbd "C-c C-f") #'my/ruff-format-buffer)
 
-#+end_src
-
-* Python
-
-#+begin_src emacs-lisp :tangle no
-(use-package pyvenv
-  :config
-  (pyvenv-mode 1))
 #+end_src
 
 
@@ -1909,27 +1641,6 @@ a different color, making it easier to match pairs visually.
       (setq doom-modeline-icon nil))                     ;; Disable icons if nerd fonts are not being used.
     :hook
     (after-init . doom-modeline-mode))
-#+end_src
-
-* NEOTREE
-  The `neotree' package provides a file tree explorer for Emacs, allowing easy navigation
-  through directories and files. It presents a visual representation of the file system
-  and integrates with version control to show file states.
-
-#+begin_src emacs-lisp
-
-  (use-package neotree
-    :ensure t
-    :straight t
-    :custom
-    (neo-show-hidden-files t)                ;; By default shows hidden files (toggle with H)
-    (neo-theme 'nerd)                        ;; Set the default theme for Neotree to 'nerd' for a visually appealing look.
-    (neo-vc-integration '(face char))        ;; Enable VC integration to display file states with faces (color coding) and characters (icons).
-    :defer t                                 ;; Load the package only when needed to improve startup time.
-    :config
-    (if ek-use-nerd-fonts                    ;; Check if nerd fonts are being used.
-        (setq neo-theme 'nerd-icons)         ;; Set the theme to 'nerd-icons' if nerd fonts are available.
-      (setq neo-theme 'nerd)))               ;; Otherwise, fall back to the 'nerd' theme.
 #+end_src
 
 * NERD ICONS
