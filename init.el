@@ -186,7 +186,8 @@
   (set-face-attribute 'default nil :family "JetBrainsMono Nerd Font"  :height 100)
   (when (eq system-type 'darwin)       ;; Check if the system is macOS.
     (setq mac-command-modifier 'meta)  ;; Set the Command key to act as the Meta key.
-    (set-face-attribute 'default nil :family "JetBrainsMono Nerd Font" :height 160))
+    (set-face-attribute 'default nil :family "FiraCode Nerd Font Mono" :height 153))
+  (setq-default line-spacing 3)
 
   ;; Save manual customizations to a separate file instead of cluttering `init.el'.
   ;; You can M-x customize, M-x customize-group, or M-x customize-themes, etc.
@@ -195,7 +196,7 @@
   (setq custom-file (locate-user-emacs-file "custom-vars.el")) ;; Specify the custom file path.
   (load custom-file 'noerror 'nomessage)                       ;; Load the custom file quietly, ignoring errors.
   (setq display-line-numbers-current-absolute nil)
-
+  (setq auth-sources '("~/.authinfo.gpg"))
   ;; Makes Emacs vertical divisor the symbol │ instead of |.
   (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
 
@@ -218,7 +219,7 @@
 
   ;; Set the default coding system for files to UTF-8.
   (modify-coding-system-alist 'file "" 'utf-8)
-
+  (add-hook 'emacs-startup-hook #'treesit-auto--build-major-mode-remap-alist)
   ;; Add a hook to run code after Emacs has fully initialized.
   (add-hook 'after-init-hook
             (lambda ()
@@ -262,10 +263,47 @@
       (when gls
         (setq insert-directory-program gls)))))
 
+(use-package isearch
+  :ensure nil                                  ;; This is built-in, no need to fetch it.
+  :config
+  (setq isearch-lazy-count t)                  ;; Enable lazy counting to show current match information.
+  (setq lazy-count-prefix-format "(%s/%s) ")   ;; Format for displaying current match count.
+  (setq lazy-count-suffix-format nil)          ;; Disable suffix formatting for match count.
+  (setq search-whitespace-regexp ".*?")        ;; Allow searching across whitespace.
+  :bind (("C-s" . isearch-forward)             ;; Bind C-s to forward isearch.
+         ("C-r" . isearch-backward)))          ;; Bind C-r to backward isearch.
+
+(use-package smerge-mode
+  :ensure nil                                  ;; This is built-in, no need to fetch it.
+  :defer t
+  :bind (:map smerge-mode-map
+              ("C-c ^ u" . smerge-keep-upper)  ;; Keep the changes from the upper version.
+              ("C-c ^ l" . smerge-keep-lower)  ;; Keep the changes from the lower version.
+              ("C-c ^ n" . smerge-next)        ;; Move to the next conflict.
+              ("C-c ^ p" . smerge-previous)))  ;; Move to the previous conflict.
+
 (use-package eldoc
   :ensure nil          ;; This is built-in, no need to fetch it.
   :init
   (global-eldoc-mode))
+
+;; Flymake is an on-the-fly syntax checking extension that provides real-time feedback
+    ;; about errors and warnings in your code as you write. This can greatly enhance your
+    ;; coding experience by catching issues early. The configuration below activates
+    ;; Flymake mode in programming buffers.
+    (use-package flymake
+      :ensure nil          ;; This is built-in, no need to fetch it.
+      :defer t
+      :hook (prog-mode . flymake-mode)
+      :custom
+      (flymake-margin-indicators-string
+       '((error "!»" compilation-error) (warning "»" compilation-warning)
+         (note "»" compilation-info)))
+    ;; Set the delay before Flymake re-runs the checker after changes
+    ;; Set the timeout for when no changes are made (e.g., when you pause typing)
+(setq flymake-no-changes-timeout 5.0) ; 1.0 seconds
+
+	)
 
 (use-package which-key
   :ensure nil     ;; This is built-in, no need to fetch it.
@@ -279,7 +317,7 @@
   :hook
   (after-init . vertico-mode)           ;; Enable vertico after Emacs has initialized.
   :custom
-  (vertico-count 10)                    ;; Number of candidates to display in the completion list.
+  (vertico-count 20)                    ;; Number of candidates to display in the completion list.
   (vertico-resize nil)                  ;; Disable resizing of the vertico minibuffer.
   (vertico-cycle nil)                   ;; Do not cycle through candidates when reaching the end of the list.
   :config
@@ -312,23 +350,25 @@
   (after-init . marginalia-mode))
 
 (use-package consult
-         :ensure t
-         :straight t
-         :defer t
-         :init
-         ;; Enhance register preview with thin lines and no mode line.
-         (advice-add #'register-preview :override #'consult-register-window)
+           :ensure t
+           :straight t
+           :defer t
+           :init
+           ;; Enhance register preview with thin lines and no mode line.
+           (advice-add #'register-preview :override #'consult-register-window)
 
-         ;; Use Consult for xref locations with a preview feature.
-         (setq xref-show-xrefs-function #'consult-xref
-               xref-show-definitions-function #'consult-xref)
+           ;; Use Consult for xref locations with a preview feature.
+           (setq xref-show-xrefs-function #'consult-xref
+                 xref-show-definitions-function #'consult-xref)
 
-	(setq consult-preview-key '(:debounce 0.5 any)) ;; 0.5s delay before preview triggers
-  	(consult-customize
-  	 consult--source-recent-file           ; For recent files (which are not necessarily open buffers)
-  	 :preview-key nil
-  	 )    
-  )
+  	;; (setq consult-preview-key 'any) ;; 0.5s delay before preview triggers
+    	(consult-customize
+    	 consult--source-recent-file           ; For recent files (which are not necessarily open buffers)
+    	 :preview-key nil
+    	 )    
+    )
+(with-eval-after-load 'consult
+  (add-to-list 'consult-preview-variables '(treesit-auto-mode . nil)))
 
 (use-package embark
   :ensure t
@@ -352,10 +392,11 @@
   :straight t
   :after emacs
   :custom
-  (treesit-auto-install 'prompt)
+  (treesit-auto-install nil)
   :config
   (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode t))
+  ;(global-treesit-auto-mode t)
+)
 
 (use-package markdown-mode
   :defer t
@@ -388,149 +429,237 @@
   :hook
   (after-init . global-company-mode)) ;; Enable Company Mode globally after initialization.
 
+(setq scroll-preserve-screen-position 'always)
+  (setq mouse-wheel-follow-mouse 'nil)
+
 (use-package exec-path-from-shell
   :if (memq window-system '(mac ns x)) ; Only use in GUI on macOS or X11
   :ensure t
   :config
   (exec-path-from-shell-initialize))
 
-(setenv "LSP_USE_PLISTS" "1")
-      (use-package lsp-mode
-        :ensure t
-        :straight t
-        :defer t
-        :hook (;; Replace XXX-mode with concrete major mode (e.g. python-mode)
-               (bash-ts-mode . lsp)                           ;; Enable LSP for Bash
-               (typescript-ts-mode . lsp)                     ;; Enable LSP for TypeScript
-               (tsx-ts-mode . lsp)                            ;; Enable LSP for TSX
-               (js-mode . lsp)                                ;; Enable LSP for JavaScript
-               (python-mode . lsp-deferred)                                ;; Enable LSP for Python
-               (python-ts-mode . lsp-deferred)                                ;; Enable LSP for Python (ts mode)
-               (js-ts-mode . lsp)                             ;; Enable LSP for JavaScript (TS mode)
-               (lsp-mode . lsp-enable-which-key-integration)) ;; Integrate with Which Key
-        :commands (lsp lsp-deferred)
-        :custom
-        (setq lsp-use-plists t)
-        (lsp-keymap-prefix "C-c l")                           ;; Set the prefix for LSP commands.
-        ; (setq lsp-inlay-hint-enable nil)                             ;; Enable inlay hints.
-;        (lsp-completion-provider :none)                       ;; Disable the default completion provider.
-;        (lsp-session-file (locate-user-emacs-file ".lsp-session")) ;; Specify session file location.
-;        (lsp-log-io nil)                                      ;; Disable IO logging for speed.
-        (lsp-idle-delay 0)                                    ;; Set the delay for LSP to 0 (debouncing).
-        (lsp-keep-workspace-alive nil)                        ;; Disable keeping the workspace alive.
-;        ;; Core settings
-        (lsp-enable-xref t)                                   ;; Enable cross-references.
-        (lsp-auto-configure t)                                ;; Automatically configure LSP.
-        (lsp-enable-links nil)                                ;; Disable links.
-        (lsp-eldoc-enable-hover t)                            ;; Enable ElDoc hover.
-        (lsp-enable-file-watchers nil)                        ;; Disable file watchers.
-        (lsp-enable-folding nil)                              ;; Disable folding.
-        (lsp-enable-imenu t)                                  ;; Enable Imenu support.
-        (lsp-enable-indentation nil)                          ;; Disable indentation.
-        (lsp-enable-on-type-formatting nil)                   ;; Disable on-type formatting.
-        (lsp-enable-suggest-server-download t)                ;; Enable server download suggestion.
-        (lsp-enable-symbol-highlighting nil)                    ;; Enable symbol highlighting.
-        (lsp-enable-text-document-color nil)                  ;; Disable text document color.
-;        ;; Modeline settings
-        (lsp-modeline-code-actions-enable nil)                ;; Keep modeline clean.
-        (lsp-modeline-diagnostics-enable nil)                 ;; Use `flymake' instead.
-        (lsp-modeline-workspace-status-enable t)              ;; Display "LSP" in the modeline when enabled.
-        (lsp-signature-doc-lines 1)                           ;; Limit echo area to one line.
-        (lsp-eldoc-render-all nil)                              ;; Render all ElDoc messages.
-;        ;; Completion settings
-        (lsp-completion-enable t)                             ;; Enable completion.
-        (lsp-completion-enable-additional-text-edit t)        ;; Enable additional text edits for completions.
-        (lsp-enable-snippet nil)                              ;; Disable snippets
-        (lsp-completion-show-kind t)                          ;; Show kind in Lens.
-;        ;; completions settings
-        (lsp-lens-enable t)                                   ;; Enable lens support.
-;        ;; Headerline settings
-        (lsp-headerline-breadcrumb-enable-symbol-numbers t)   ;; Enable symbol numbers in the headerline.
-        (lsp-headerline-arrow "▶")                            ;; Set arrow for headerline.
-        (lsp-headerline-breadcrumb-enable-diagnostics nil)    ;; Disable diagnostics in headerline.
-        (lsp-headerline-breadcrumb-icons-enable nil)          ;; Disable icons in breadcrumb.
-;        ;; Semantic settings
-        (lsp-semantic-tokens-enable nil)
-        (setq lsp-restart 'auto-restart)
-  	 )                     ;; Disable semantic tokens.
-
-(use-package lsp-pyright
-              :ensure t
-              :after lsp-mode
-              :custom
-                (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
-              :hook (
-            		   ;(python-mode . (lambda () (require 'lsp-pyright) (lsp)))
-	      		   (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
-            		   )
-
-			 )
-	    (setq lsp-disabled-clients '(ty-ls semgrep-ls ruff))
-
-(defun lsp-booster--advice-json-parse (old-fn &rest args)
-  "Try to parse bytecode instead of json."
-  (or
-   (when (equal (following-char) ?#)
-     (let ((bytecode (read (current-buffer))))
-       (when (byte-code-function-p bytecode)
-         (funcall bytecode))))
-   (apply old-fn args)))
-(advice-add (if (progn (require 'json)
-                       (fboundp 'json-parse-buffer))
-                'json-parse-buffer
-              'json-read)
-            :around
-            #'lsp-booster--advice-json-parse)
-
-(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-  "Prepend emacs-lsp-booster command to lsp CMD."
-  (let ((orig-result (funcall old-fn cmd test?)))
-    (if (and (not test?)                             ;; for check lsp-server-present?
-             (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
-             lsp-use-plists
-             (not (functionp 'json-rpc-connection))  ;; native json-rpc
-             (executable-find "emacs-lsp-booster"))
-        (progn
-          (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
-            (setcar orig-result command-from-exec-path))
-          (message "Using emacs-lsp-booster for %s!" orig-result)
-          (cons "emacs-lsp-booster" orig-result))
-      orig-result)))
-(advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
-
-        (use-package python-pytest
-          :after python evil
+(use-package blamer
           :ensure t
+          :bind (("s-i" . blamer-show-commit-info)
+                 ("C-c i" . blamer-show-posframe-commit-info))
+          :defer 20
           :custom
-          (python-pytest-arguments
-           '("--color"          ;; colored output in the buffer
-             "--failed-first"   ;; run the previous failed tests first
-             "--maxfail=5"
-        	 "--pdb"
-           ))    ;; exit in 5 continuous failures in a run
+          (blamer-idle-time 0.3)
+          (blamer-min-offset 30)
+          (blamer-max-commit-message-length 60)
+:custom-face
+          (blamer-face ((t :foreground "#7a88cf"
+                            :background nil
+                            :height 140
+                            :italic t)))
+	    (setq blamer-type 'selected)
           :config
-          (which-key-declare-prefixes-for-mode 'python-mode "SPC pt" "Testing")
-          (evil-leader/set-key-for-mode 'python-mode
-            "ptp" 'python-pytest-popup
-            "ptt" 'python-pytest
-            "ptf" 'python-pytest-file
-            "ptF" 'python-pytest-file-dwim
-            "ptm" 'python-pytest-function
-            "ptM" 'python-pytest-function-dwim
-            "ptl" 'python-pytest-last-failed)
-          )
+          (global-blamer-mode 1))
 
-                             ; or lsp-deferred
+(use-package dumb-jump
+  :ensure t
+  :config
+  (setq dumb-jump-force-searcher 'rg))  ; optionally use ripgrep for speed
 
-             ;(with-eval-after-load 'lsp-mode
-             ;  (setq lsp-language-id-configuration
-             ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
-             ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
+(use-package lsp-jedi
+       :disable t
+      :ensure t)
+    (setq lsp-disabled-clients '(ty-ls semgrep-ls ruff pylsp))
+    (defun lsp-booster--advice-json-parse (old-fn &rest args)
+      "Try to parse bytecode instead of json."
+      (or
+       (when (equal (following-char) ?#)
+         (let ((bytecode (read (current-buffer))))
+           (when (byte-code-function-p bytecode)
+             (funcall bytecode))))
+       (apply old-fn args)))
+    (advice-add (if (progn (require 'json)
+                           (fboundp 'json-parse-buffer))
+                    'json-parse-buffer
+                  'json-read)
+                :around
+                #'lsp-booster--advice-json-parse)
+
+    (defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+      "Prepend emacs-lsp-booster command to lsp CMD."
+      (let ((orig-result (funcall old-fn cmd test?)))
+        (if (and (not test?)                             ;; for check lsp-server-present?
+                 (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+                 lsp-use-plists
+                 (not (functionp 'json-rpc-connection))  ;; native json-rpc
+                 (executable-find "emacs-lsp-booster"))
+            (progn
+              (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
+                (setcar orig-result command-from-exec-path))
+              (message "Using emacs-lsp-booster for %s!" orig-result)
+              (cons "emacs-lsp-booster" orig-result))
+          orig-result)))
+    (advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
+
+            (use-package python-pytest
+              :after python evil
+              :ensure t
+              :custom
+              (python-pytest-arguments
+               '("--color"          ;; colored output in the buffer
+                 "--failed-first"   ;; run the previous failed tests first
+                 "--maxfail=5"
+            	 "--pdb"
+               ))    ;; exit in 5 continuous failures in a run
+              :config
+              (which-key-declare-prefixes-for-mode 'python-mode "SPC pt" "Testing")
+              (evil-leader/set-key-for-mode 'python-mode
+                "ptp" 'python-pytest-popup
+                "ptt" 'python-pytest
+                "ptf" 'python-pytest-file
+                "ptF" 'python-pytest-file-dwim
+                "ptm" 'python-pytest-function
+                "ptM" 'python-pytest-function-dwim
+                "ptl" 'python-pytest-last-failed)
+              )
+
+(use-package eglot
+  :ensure t
+  :hook ((python-mode python-ts-mode) . eglot-ensure)
+  :config
+  (add-to-list 'eglot-server-programs
+    `((python-ts-mode python-mode) . ("pyrefly" "lsp"))))
+                                 ; or lsp-deferred
+
+                 ;(with-eval-after-load 'lsp-mode
+                 ;  (setq lsp-language-id-configuration
+                 ;        (assoc-delete-all 'python-mode lsp-language-id-configuration))
+                 ;  (add-to-list 'lsp-language-id-configuration '(python-mode . "python"))
+
+(custom-set-faces
+ '(flycheck-error ((t (:underline (:style dots :color "Red1")))))
+ '(flycheck-warning ((t (:underline (:style dots :color "DarkOrange")))))
+ '(flycheck-info ((t (:underline (:style dots :color "DeepSkyBlue")))))
+ )
+
+(use-package lsp-ui
+  :ensure t
+  :after (lsp-mode)
+  :commands lsp-ui-doc-hide
+  :bind (:map lsp-ui-mode-map
+     ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
+     ([remap xref-find-references] . lsp-ui-peek-find-references)
+     ("C-c u" . lsp-ui-imenu))
+  :init (setq lsp-ui-doc-enable t
+     lsp-ui-doc-use-webkit nil
+     lsp-ui-doc-header nil
+     lsp-ui-doc-delay 0.2
+     lsp-ui-doc-include-signature t
+     lsp-ui-doc-alignment 'at-point
+     lsp-ui-doc-use-childframe nil
+     lsp-ui-doc-border (face-foreground 'default)
+     lsp-ui-peek-enable t
+     lsp-ui-peek-show-directory t
+     lsp-ui-sideline-update-mode 'line
+     lsp-ui-sideline-enable t
+     lsp-ui-sideline-show-code-actions t
+     lsp-ui-sideline-show-hover nil
+     lsp-ui-sideline-ignore-duplicate t)
+  :config
+  (add-to-list 'lsp-ui-doc-frame-parameters '(right-fringe . 8))
+
+  ;; `C-g'to close doc
+  (advice-add #'keyboard-quit :before #'lsp-ui-doc-hide)
+
+  ;; Reset `lsp-ui-doc-background' after loading theme
+  (add-hook 'after-load-theme-hook
+   (lambda ()
+     (setq lsp-ui-doc-border (face-foreground 'default))
+     (set-face-background 'lsp-ui-doc-background
+              (face-background 'tooltip))))
+
+  ;; WORKAROUND Hide mode-line of the lsp-ui-imenu buffer
+  ;; @see https://github.com/emacs-lsp/lsp-ui/issues/243
+  (defadvice lsp-ui-imenu (after hide-lsp-ui-imenu-mode-line activate)
+    (setq mode-line-format nil)))
+
+(use-package consult-lsp
+  :ensure t
+  :after (lsp-mode consult)
+  :init
+  ;; Optional: Remap xref-find-apropos to consult-lsp-symbols
+  ;; This makes M-x xref-find-apropos (or its default binding, C-c C-d)
+  ;; use consult-lsp-symbols for workspace-wide symbol search.
+  (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)
+  ;; Other useful remappings for file symbols or diagnostics
+  (define-key lsp-mode-map (kbd "M-s s") #'consult-lsp-symbols) ; Example custom binding
+  (define-key lsp-mode-map (kbd "M-s f") #'consult-lsp-file-symbols)
+  (define-key lsp-mode-map (kbd "M-s d") #'consult-lsp-diagnostics)
+  )
+
+(use-package flymake-ruff
+  :hook (python-mode . flymake-ruff-load)
+  )
+
+
+  
+  (defun my/ruff-format-buffer ()
+  "Format current buffer with ruff."
+  (interactive)
+  (shell-command-on-region (point-min) (point-max) "ruff format -" nil t))
+
+;; (define-key python-mode-map (kbd "C-c C-f") #'my/ruff-format-buffer)
+
+(setq tags-add-tables nil)
+      (setq tags-revert-without-query t)
+      (setq tags-case-fold-search nil)
+
+      (defun my/load-project-tags ()
+      "Automatically load TAGS file from project root."
+      (let* ((project (project-current))
+             (root (when project (project-root project)))
+             (tags-file (when root (expand-file-name "TAGS" root))))
+        (when (and tags-file (file-exists-p tags-file))
+          (visit-tags-table tags-file t))))
+
+
+(defun my/consult-etags ()
+  "Search tags from TAGS file using `consult'."
+  (interactive)
+  (unless tags-table-list
+    (user-error "No TAGS file loaded. Run `visit-tags-table' first."))
+  (let (candidates)
+    (visit-tags-table-buffer)
+    (tags-completion-table)
+    (mapatoms
+     (lambda (sym)
+       (push (symbol-name sym) candidates))
+     obarray)
+    (let ((selection (consult--read (delete-dups candidates)
+                                     :prompt "Tag: "
+                                     :require-match t)))
+      (find-tag selection))))
+
+(use-package diff-hl
+  :defer t
+  :straight t
+  :ensure t
+  :hook
+  (find-file . (lambda ()
+                 (global-diff-hl-mode)           ;; Enable Diff-HL mode for all files.
+                 (diff-hl-flydiff-mode)          ;; Automatically refresh diffs.
+                 (diff-hl-margin-mode)))         ;; Show diff indicators in the margin.
+  :custom
+  (diff-hl-side 'left)                           ;; Set the side for diff indicators.
+  (diff-hl-margin-symbols-alist '((insert . "│") ;; Customize symbols for each change type.
+                                  (delete . "-")
+                                  (change . "│")
+                                  (unknown . "?")
+                                  (ignored . "i"))))
 
 (use-package magit
   :ensure t
   :straight t
   :defer t)
+
+(use-package forge
+  :ensure t
+  :after magit)
 
 (use-package xclip
   :ensure t
@@ -692,9 +821,19 @@
                      (shell-command (concat "prettier --write " (shell-quote-argument (buffer-file-name))))
                      (revert-buffer t t t)))
 
+
+  (defun my/lsp-or-dumb-jump ()
+	"Try LSP definition first, fall back to dumb-jump if it fails."
+	(interactive)
+	(condition-case err
+	    (lsp-find-definition)
+	    (error
+	    (message "LSP failed (%s), falling back to dumb-jump..." err)
+	    (dumb-jump-go))))
   ;; LSP commands keybindings
   (evil-define-key 'normal lsp-mode-map
-                   ;; (kbd "gd") 'lsp-find-definition                ;; evil-collection already provides gd
+                   (kbd "gd") #'my/lsp-or-dumb-jump ;; evil-collection already provides gd
+				   (kbd "gR") 'dumb-jump-quick-look
                    (kbd "gr") 'lsp-find-references                   ;; Finds LSP references
                    (kbd "<leader> c a") 'lsp-execute-code-action     ;; Execute code actions
                    (kbd "<leader> r n") 'lsp-rename                  ;; Rename symbol
@@ -776,115 +915,120 @@
   (global-evil-matchit-mode 1))
 
 (defun dw/org-mode-setup ()
-       (org-indent-mode)
-       (variable-pitch-mode 1)
-       (auto-fill-mode 0)
-       (visual-line-mode 1)
-       (setq evil-auto-indent nil))
+    (org-indent-mode)
+    (variable-pitch-mode 1)
+    (auto-fill-mode 0)
+    (visual-line-mode 1)
+    (setq evil-auto-indent nil))
 
-     (use-package org
-       ; :hook (org-mode . dw/org-mode-setup)
-       :config
-      ; (setq org-ellipsis " ▾" org-hide-emphasis-markers t)
- 	  )
+  (use-package org
+  										; :hook (org-mode . dw/org-mode-setup)
+    :config
+  										; (setq org-ellipsis " ▾" org-hide-emphasis-markers t)
+    )
 
-(use-package org-modern
-  :ensure t
-  :after org
-										; :hook (org-mode)
-  :config
-  (setq
-   ;; Edit settings
-   org-auto-align-tags nil
-   org-tags-column 0
-   org-catch-invisible-edits 'show-and-error
-   org-special-ctrl-a/e t
-   org-insert-heading-respect-content t
+  (use-package org-modern
+    :ensure t
+    :after org
+  										; :hook (org-mode)
+    :config
+    (setq
+     ;; Edit settings
+     org-auto-align-tags nil
+     org-tags-column 0
+     org-catch-invisible-edits 'show-and-error
+     org-special-ctrl-a/e t
+     org-insert-heading-respect-content t
 
-   ;; Org styling, hide markup etc.
-   org-hide-emphasis-markers t
-   org-pretty-entities t
-   org-agenda-tags-column 0
-   org-ellipsis "…")
-  (with-eval-after-load 'org (global-org-modern-mode))
+     ;; Org styling, hide markup etc.
+     org-hide-emphasis-markers t
+     org-pretty-entities t
+     org-agenda-tags-column 0
+     org-ellipsis "…")
+    (with-eval-after-load 'org (global-org-modern-mode))
 
-  ) 
+    ) 
 
-   ;  (use-package org-bullets
-   ;    :after org
-   ;    :hook (org-mode . org-bullets-mode)
-   ;    :custom
-   ;    (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+(use-package org-modern-indent
+  :load-path "~/.emacs.d/lisp/org-modern-indent"
+  :config ; add late to hook
+    (add-hook 'org-mode-hook #'org-modern-indent-mode 90))
 
-     ;; Replace List hyphen with dot
-    ; (font-lock-add-keywords 'org-mode
-    ;                         '(("^ *\\([-]\\) "
-    ;                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+  										;  (use-package org-bullets
+  										;    :after org
+  										;    :hook (org-mode . org-bullets-mode)
+  										;    :custom
+  										;    (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+
+  ;; Replace List hyphen with dot
+  										; (font-lock-add-keywords 'org-mode
+  										;                         '(("^ *\\([-]\\) "
+  										;                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
 
 
-   ; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
-   ;                (org-level-2 . 1.1)
-   ;                (org-level-3 . 1.05)
-   ;                (org-level-4 . 1.0)
-   ;                (org-level-5 . 1.1)
-   ;                (org-level-6 . 1.1)
-   ;                (org-level-7 . 1.1)
-   ;                (org-level-8 . 1.1)))
-   ;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
+  										; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
+  										;                (org-level-2 . 1.1)
+  										;                (org-level-3 . 1.05)
+  										;                (org-level-4 . 1.0)
+  										;                (org-level-5 . 1.1)
+  										;                (org-level-6 . 1.1)
+  										;                (org-level-7 . 1.1)
+  										;                (org-level-8 . 1.1)))
+  										;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
 
-  ;    (let* ((variable-tuple
-  ;          (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
-  ;                ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
-  ;                ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
-  ;                ((x-list-fonts "Verdana")         '(:font "Verdana"))
-  ;                ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
-  ;                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-  ;         (base-font-color     (face-foreground 'default nil 'default))
-  ;         (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
+  										;    (let* ((variable-tuple
+  										;          (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
+  										;                ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
+  										;                ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
+  										;                ((x-list-fonts "Verdana")         '(:font "Verdana"))
+  										;                ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
+  										;                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+  										;         (base-font-color     (face-foreground 'default nil 'default))
+  										;         (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
 
-  ;    (custom-theme-set-faces
-  ;     'user
-  ;     `(org-level-8 ((t (,@headline ,@variable-tuple))))
-  ;     `(org-level-7 ((t (,@headline ,@variable-tuple))))
-  ;     `(org-level-6 ((t (,@headline ,@variable-tuple))))
-  ;     `(org-level-5 ((t (,@headline ,@variable-tuple))))
-  ;     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
-  ;     `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
-  ;     `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
-  ;     `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
-  ;     `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
+  										;    (custom-theme-set-faces
+  										;     'user
+  										;     `(org-level-8 ((t (,@headline ,@variable-tuple))))
+  										;     `(org-level-7 ((t (,@headline ,@variable-tuple))))
+  										;     `(org-level-6 ((t (,@headline ,@variable-tuple))))
+  										;     `(org-level-5 ((t (,@headline ,@variable-tuple))))
+  										;     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
+  										;     `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
+  										;     `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
+  										;     `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
+  										;     `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
 
-  ;   (custom-theme-set-faces
-  ;  'user
-  ;  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
-  ;  '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
-  ; (add-hook 'org-mode-hook 'variable-pitch-mode)
-  ;   ;; Make sure org-indent face is available
-  ;   (require 'org-indent)
+  										;   (custom-theme-set-faces
+  										;  'user
+  										;  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
+  										;  '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
+  										; (add-hook 'org-mode-hook 'variable-pitch-mode)
+  										;   ;; Make sure org-indent face is available
+  										;   (require 'org-indent)
 
-  ; (custom-theme-set-faces
-  ;  'user
-  ;  '(org-block ((t (:inherit fixed-pitch))))
-  ;  '(org-code ((t (:inherit (shadow fixed-pitch)))))
-  ;  '(org-document-info ((t (:foreground "dark orange"))))
-  ;  '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
-  ;  '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
-  ;  '(org-link ((t (:foreground "royal blue" :underline t))))
-  ;  '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-  ;  '(org-property-value ((t (:inherit fixed-pitch))) t)
-  ;  '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-  ;  '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
-  ;  '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
-  ;  '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
+  										; (custom-theme-set-faces
+  										;  'user
+  										;  '(org-block ((t (:inherit fixed-pitch))))
+  										;  '(org-code ((t (:inherit (shadow fixed-pitch)))))
+  										;  '(org-document-info ((t (:foreground "dark orange"))))
+  										;  '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+  										;  '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+  										;  '(org-link ((t (:foreground "royal blue" :underline t))))
+  										;  '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  										;  '(org-property-value ((t (:inherit fixed-pitch))) t)
+  										;  '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+  										;  '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+  										;  '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+  										;  '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
 
- ;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
- ;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
- ;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
- ;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
- ;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
- ;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
- ;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
- ;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
+  										;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
+  										;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
+  										;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
+  										;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
+  										;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+  										;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+  										;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+  										;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
 
 ;; Org Babel Configuration
   (org-babel-do-load-languages
@@ -1263,7 +1407,7 @@
   :ensure t
   :config
   ;; Define the Gemini backend
-  (gptel-make-gemini "Gemini" :stream t :key (gptel-api-key-from-auth-source "generativelanguage.googleapis.com")
+  (gptel-make-gemini "Gemini" :stream t :key (gptel-api-key-from-auth-source "generativelanguage.googleapis.com"))
 
   ;; Set Gemini as your default backend
   (setq gptel-default-backend 'Gemini)
@@ -1276,3 +1420,73 @@
   ; See the Configuration section below
   (aidermacs-default-chat-mode 'architect)
   (aidermacs-default-model "ollama_chat/deepseek-r1:8b"))
+
+(defun my/open-jira-ticket-at-point ()
+      "Open JIRA ticket at point in Firefox. Assumes ID like GRW-1234."
+      (interactive)
+      (let ((ticket-id (thing-at-point 'symbol t)))
+        (if (and ticket-id (string-match-p "^[A-Z]+-[0-9]+$" ticket-id))
+            (browse-url (format "https://paylocity.atlassian.net/browse/%s" ticket-id))
+          (message "No valid JIRA ticket ID at point."))))
+
+    (defun my/org-open-jira-tickets-in-column ()
+      "Open all JIRA ticket IDs from the current Org table column in browser."
+      (interactive)
+      (unless (org-at-table-p)
+        (user-error "Not in an Org table"))
+      (let* ((col (org-table-current-column))
+             (tickets '()))
+        (save-excursion
+          (goto-char (org-table-begin))
+          (forward-line)
+          (while (and (not (eobp)) (org-at-table-p))
+            (let ((cell (org-trim (org-table-get-field col))))
+              (when (string-match "^[A-Z]+-[0-9]+$" cell)
+                (push cell tickets)))
+            (forward-line)))
+        (if tickets
+            (dolist (ticket (nreverse tickets))
+              (browse-url (format "https://paylocity.atlassian.net/browse/%s" ticket)))
+          (message "No valid JIRA ticket IDs found in column."))))
+
+    
+  (defun copy-project-relative-file-and-line ()
+    "Copy the project-relative file name and line number to the clipboard."
+    (interactive)
+    (let* ((file (or (buffer-file-name) ""))
+           (line (line-number-at-pos))
+           (project-root (when (fboundp 'project-root)
+                           (when-let ((project (project-current)))
+                             (expand-file-name (project-root project))))))
+      (if (and file project-root)
+          (let ((relative-path (file-relative-name file project-root))
+                (path-line nil))
+            (setq path-line (format "%s:%d" relative-path line))
+            (kill-new path-line)
+            (message "Copied: %s" path-line))
+        (message "Could not determine project root or file name"))))
+(global-set-key (kbd "C-c y") 'copy-project-relative-file-and-line)
+
+(use-package project
+:ensure nil ; project.el is built-in
+:config
+(setq project-switch-commands
+      '((?s "Consult Grep" consult-grep)
+        (?r "Consult Ripgrep" consult-ripgrep)
+        (?f "Consult Find" consult-find)
+        (?b "Project Buffer" consult-project-buffer)
+        (?d "Dired" project-dired)
+        (?g "Magit" magit-project-status))))
+
+(use-package git-gutter
+  :ensure t
+  :hook (prog-mode . git-gutter-mode)
+  :config
+  (setq git-gutter:update-interval 0.02))
+
+(use-package git-gutter-fringe
+  :ensure t
+  :config
+  (define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom))
