@@ -237,15 +237,15 @@
                          (number-to-string (length package-activated-list))))))))
 
 (use-package exec-path-from-shell
-  :ensure t
-  :custom
-  (when (memq window-system '(mac ns x))
-      (exec-path-from-shell-initialize)
-  (dolist (var '("MAGICK_HOME" "DYLD_LIBRARY_PATH" "PKG_CONFIG_PATH" "PYENV_ROOT"))
-  (add-to-list 'exec-path-from-shell-variables var))
-	  )
-
-)
+:ensure t
+:if (memq window-system '(mac ns x)) ;; Only load in GUI
+:init
+(setq exec-path-from-shell-arguments '("-l"))
+(setq exec-path-from-shell-variables
+      '("PATH" "SHELL" "MAGICK_HOME" "DYLD_LIBRARY_PATH"
+        "PKG_CONFIG_PATH" "PYENV_ROOT"))
+:config
+(exec-path-from-shell-initialize))
 
 (use-package dired
   :ensure nil                                                ;; This is built-in, no need to fetch it.
@@ -457,7 +457,7 @@
       (global-corfu-mode) ; This does not play well in eshell if you run a repl
       (setq corfu-auto t)))
     ;(define-key corfu-map (kbd "M-p") #'corfu-popupinfo-scroll-down) ;; corfu-next
-    ;(define-key corfu-map (kbd "M-n") #'corfu-popupinfo-scroll-up))  ;; corfu-previous
+    ;(define-key corfu-map (kbd "M-n") #'corfu-popupinfo-scroll-up)  ;; corfu-previous
 
 (setq scroll-preserve-screen-position 'always)
   (setq mouse-wheel-follow-mouse 'nil)
@@ -501,18 +501,36 @@
 (use-package eglot
   :ensure t
   :defer t
+  :bind (:map eglot-mode-map
+            ("C-c C-d" . eldoc)
+            ("C-c C-e" . eglot-rename)
+            ("C-c C-o" . python-sort-imports)
+            ("C-c C-f" . eglot-format-buffer))
   :hook (
 		 (python-mode . eglot-ensure)
          (python-ts-mode . eglot-ensure)
 	)
   :config
-  (add-to-list 'eglot-server-programs
-           '(python-mode .
-		("basedpyright-langserver" "--stdio")
-		;;("pyrefly" "lsp")
-		 )
-))
+  (add-to-list 'eglot-server-programs '(python-mode . ("pylsp"))) ;;("pyrefly" "lsp")
+  (setq-default eglot-workspace-configuration
+              '((:pylsp . (:plugins (
+                                     :pycodestyle (:enabled :json-false)
+                                     :mccabe (:enabled :json-false)
+                                     :pyflakes (:enabled :json-false)
+                                     :flake8 (:enabled :json-false
+                                              :maxLineLength 88)
+									 :jedi_completion (:include_params t :fuzzy t)
+                                     :ruff (:enabled t :lineLength 88)
+                                     :pydocstyle (:enabled t :convention "numpy")
+                                     :yapf (:enabled :json-false)
+                                     :autopep8 (:enabled :json-false)
+									 :rope_autoimport (:enabled t)
+									 :pylsp_mypy (:enabled t :live_mode t :strict nil)
+                                     )))))
+)
+
   (use-package eglot-booster
+	:disabled t
 	:after eglot
 	:config	(eglot-booster-mode) (eglot-booster-io-only))
 
@@ -522,18 +540,6 @@
 :after (consult eglot)
 :bind
 (("C-c e s" . consult-eglot-symbols)))
-
-(use-package flymake-ruff
-  :hook (python-mode . flymake-ruff-load)
-  )
-
-  
-  (defun my/ruff-format-buffer ()
-  "Format current buffer with ruff."
-  (interactive)
-  (shell-command-on-region (point-min) (point-max) "ruff format -" nil t))
-
-;; (define-key python-mode-map (kbd "C-c C-f") #'my/ruff-format-buffer)
 
 (setq tags-add-tables nil)
       (setq tags-revert-without-query t)
@@ -660,6 +666,8 @@
   (evil-define-key 'normal 'global (kbd "<leader> s h") 'consult-info)
   (evil-define-key 'normal 'global (kbd "<leader> s d") 'deadgrep)
   (evil-define-key 'normal 'global (kbd "<leader> /") 'consult-line)
+  (evil-define-key 'normal 'global (kbd "<leader> s s") 'consult-imenu)
+
 
   ;; Flymake navigation
   (evil-define-key 'normal 'global (kbd "<leader> x x") 'consult-flymake);; Gives you something like `trouble.nvim'
@@ -767,7 +775,7 @@
   ;; thus, this will open a small buffer bellow your window.
   ;; This floating frames are called "child frames" and some recent effort is being put
   ;; into having a translation of those marvelous GUI stuff to terminal. Let's hope
-  ;; we add this to Emacs Kick soom :)
+  ;; we add this to Emacs Kick soom
 
   ;; Commenting functionality for single and multiple lines
   (evil-define-key 'normal 'global (kbd "gcc")
