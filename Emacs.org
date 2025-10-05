@@ -121,14 +121,6 @@
     "Configuration for using Nerd Fonts Symbols."
     :type 'boolean
     :group 'appearance)
-    '(add-hook 'typescript-ts-mode-hook #'add-node-modules-path)
-  (eval-after-load 'tsx-ts-mode
-    '(add-hook 'tsx-ts-mode-hook #'add-node-modules-path))
-  (eval-after-load 'typescriptreact-mode
-    '(add-hook 'typescriptreact-mode-hook #'add-node-modules-path))
-  (eval-after-load 'js-mode
-    '(add-hook 'js-mode-hook #'add-node-modules-path))
-
 
   ;; From now on, you'll see configurations using the `use-package` macro, which
   ;; allows us to organize our Emacs setup in a modular way. These configurations
@@ -163,6 +155,7 @@ This is biggest one. Keep going, plugins (oops, I mean packages) will be shorter
     (delete-by-moving-to-trash t)                   ;; Move deleted files to the trash instead of permanently deleting them.
     (delete-selection-mode 1)                       ;; Enable replacing selected text with typed text.
     (display-line-numbers-type 'relative)           ;; Use relative line numbering in programming modes.
+    (display-line-numbers-current-absolute t)
     (global-auto-revert-non-file-buffers t)         ;; Automatically refresh non-file buffers.
     (history-length 25)                             ;; Set the length of the command history.
     (inhibit-startup-message t)                     ;; Disable the startup message when Emacs launches.
@@ -194,14 +187,17 @@ This is biggest one. Keep going, plugins (oops, I mean packages) will be shorter
       (string-match "\\*[^*]+\\*" (buffer-name buffer)))
     (setq switch-to-prev-buffer-skip 'skip-these-buffers)
 
+    (setq scroll-preserve-screen-position 'always)
+    (setq mouse-wheel-follow-mouse 'nil)
 
     ;; Configure font settings based on the operating system.
     ;; Ok, this kickstart is meant to be used on the terminal, not on GUI.
     ;; But without this, I fear you could start Graphical Emacs and be sad :(
-    (set-face-attribute 'default nil :family "JetBrainsMono Nerd Font"  :height 100)
     (when (eq system-type 'darwin)       ;; Check if the system is macOS.
       (setq mac-command-modifier 'meta)  ;; Set the Command key to act as the Meta key.
-      (set-face-attribute 'default nil :family "FiraCode Nerd Font Mono" :height 153))
+  	(setq mac-option-modifier 'super)
+      (set-face-attribute 'default nil :family "FiraCode Nerd Font Mono" :height 153 :weight 'normal))
+    (set-face-attribute 'default nil :family "JetBrainsMono Nerd Font"  :height 120 :weight 'semilight)
     (setq-default line-spacing 3)
 
     ;; Save manual customizations to a separate file instead of cluttering `init.el'.
@@ -222,7 +218,7 @@ This is biggest one. Keep going, plugins (oops, I mean packages) will be shorter
     (when scroll-bar-mode
       (scroll-bar-mode -1))      ;; Disable the scroll bar if it is active.
 
-    (global-hl-line-mode 1)      ;; Enable highlight of the current line
+    (global-hl-line-mode -1)      ;; Enable highlight of the current line
     (global-auto-revert-mode 1)  ;; Enable global auto-revert mode to keep buffers up to date with their corresponding files.
     (indent-tabs-mode -1)        ;; Disable the use of tabs for indentation (use spaces instead).
     (recentf-mode 1)             ;; Enable tracking of recently opened files.
@@ -234,7 +230,6 @@ This is biggest one. Keep going, plugins (oops, I mean packages) will be shorter
 
     ;; Set the default coding system for files to UTF-8.
     (modify-coding-system-alist 'file "" 'utf-8)
-    (add-hook 'emacs-startup-hook #'treesit-auto--build-major-mode-remap-alist)
     ;; Add a hook to run code after Emacs has fully initialized.
     (add-hook 'after-init-hook
               (lambda ()
@@ -398,31 +393,34 @@ This is biggest one. Keep going, plugins (oops, I mean packages) will be shorter
   The keybindings below serve as a reminder of some common VC commands.
   But don't worry, you can always use `M-x command' :)
 #+begin_src emacs-lisp :tangle no
-  (use-package vc
-    :ensure nil                        ;; This is built-in, no need to fetch it.
-    :defer t
-    :bind
-    (("C-x v d" . vc-dir)              ;; Open VC directory for version control status.
-     ("C-x v =" . vc-diff)             ;; Show differences for the current file.
-     ("C-x v D" . vc-root-diff)        ;; Show differences for the entire repository.
-     ("C-x v v" . vc-next-action))     ;; Perform the next version control action.
-    :config
-    ;; Better colors for <leader> g b  (blame file)
-    (setq vc-annotate-color-map
-          '((20 . "#f5e0dc")
-            (40 . "#f2cdcd")
-            (60 . "#f5c2e7")
-            (80 . "#cba6f7")
-            (100 . "#f38ba8")
-            (120 . "#eba0ac")
-            (140 . "#fab387")
-            (160 . "#f9e2af")
-            (180 . "#a6e3a1")
-            (200 . "#94e2d5")
-            (220 . "#89dceb")
-            (240 . "#74c7ec")
-            (260 . "#89b4fa")
-            (280 . "#b4befe"))))
+    (use-package vc
+      :ensure nil                        ;; This is built-in, no need to fetch it.
+      :defer t
+      :bind
+      (("C-x v d" . vc-dir)              ;; Open VC directory for version control status.
+       ("C-x v =" . vc-diff)             ;; Show differences for the current file.
+       ("C-x v D" . vc-root-diff)        ;; Show differences for the entire repository.
+       ("C-x v v" . vc-next-action))     ;; Perform the next version control action.
+      :config
+      ;; Better colors for <leader> g b  (blame file)
+      (setq vc-annotate-color-map
+            '((20 . "#f5e0dc")
+              (40 . "#f2cdcd")
+              (60 . "#f5c2e7")
+              (80 . "#cba6f7")
+              (100 . "#f38ba8")
+              (120 . "#eba0ac")
+              (140 . "#fab387")
+              (160 . "#f9e2af")
+              (180 . "#a6e3a1")
+              (200 . "#94e2d5")
+              (220 . "#89dceb")
+              (240 . "#74c7ec")
+              (260 . "#89b4fa")
+              (280 . "#b4befe")))
+  (remove-hook 'find-file-hooks 'vc-find-file-hook)
+  (setq vc-handled-backends '(Git))
+    )
 
 
 #+end_src
@@ -463,24 +461,25 @@ you how to work with it in case you are curious about it.
 
 * FLYMAKE
 
-#+begin_src emacs-lisp 
-        ;; Flymake is an on-the-fly syntax checking extension that provides real-time feedback
-        ;; about errors and warnings in your code as you write. This can greatly enhance your
-        ;; coding experience by catching issues early. The configuration below activates
-        ;; Flymake mode in programming buffers.
-        (use-package flymake
-          :ensure nil          ;; This is built-in, no need to fetch it.
-          :defer t
-          :hook (prog-mode . flymake-mode)
-          :custom
-          (flymake-margin-indicators-string
-           '((error "!»" compilation-error) (warning "»" compilation-warning)
-             (note "»" compilation-info)))
-	    ;; Set the delay before Flymake re-runs the checker after changes
-	    ;; Set the timeout for when no changes are made (e.g., when you pause typing)
-	(setq flymake-no-changes-timeout 5.0) ; 1.0 seconds
+Flymake is an on-the-fly syntax checking extension that provides real-time feedback
+about errors and warnings in your code as you write. This can greatly enhance your
+coding experience by catching issues early. The configuration below activates
+Flymake mode in programming buffers.
 
-  		)
+#+begin_src emacs-lisp 
+  (use-package flymake
+        :ensure nil          ;; This is built-in, no need to fetch it.
+        :defer t
+        :hook (prog-mode . flymake-mode)
+        :custom
+        (flymake-margin-indicators-string
+         '((error "!»" compilation-error) (warning "»" compilation-warning)
+           (note "»" compilation-info)))
+        ;; Set the delay before Flymake re-runs the checker after changes
+        ;; Set the timeout for when no changes are made (e.g., when you pause typing)
+  	  (setq flymake-no-changes-timeout 5.0) ; 1.0 seconds
+  	  (setq flymake-fringe-indicator-position nil)
+  )
 
 #+end_src
 
@@ -593,7 +592,9 @@ This combination provides a powerful and customizable completion experience.
     :init
     (setq completion-styles '(orderless basic)  ;; Set the completion styles.
           completion-category-defaults nil      ;; Clear default category settings.
-          completion-category-overrides '((file (styles partial-completion))))) ;; Customize file completion styles.
+          completion-category-overrides '((file (styles partial-completion))))
+    (vertico-mouse-mode)
+  ) ;; Customize file completion styles.
 #+end_src
 
 * MARGINALIA
@@ -626,12 +627,16 @@ navigating buffers, files, and xrefs with ease.
            ;; Use Consult for xref locations with a preview feature.
            (setq xref-show-xrefs-function #'consult-xref
                  xref-show-definitions-function #'consult-xref)
+      (define-key vertico-map [S-up] #'vertico-previous-group)
+      (define-key vertico-map [S-down] #'vertico-next-group)
+	(define-key consult-narrow-map [C-left] #'consult-narrow-cycle-backward)
+	(define-key consult-narrow-map [C-right] #'consult-narrow-cycle-forward)
 
-  	;; (setq consult-preview-key 'any) ;; 0.5s delay before preview triggers
-    ;;	(consult-customize consult--source-recent-file           ; For recent files (which are not necessarily open buffers) :preview-key nil)    
+    (with-eval-after-load 'consult
+	(add-to-list 'consult-preview-variables '(treesit-auto-mode . nil))
+	(add-to-list 'consult-preview-allowed-hooks 'breadcrumb-mode)
     )
-(with-eval-after-load 'consult
-  (add-to-list 'consult-preview-variables '(treesit-auto-mode . nil)))
+    )
 #+end_src
 * EMBARK
 Embark provides a powerful contextual action menu for Emacs, allowing
@@ -673,17 +678,32 @@ code parsing capabilities, making it easier to work with modern
 programming languages.
 
 #+begin_src emacs-lisp 
-    (use-package treesit-auto
-      :ensure t
-      :straight t
-      :after emacs
-      :custom
-      (treesit-auto-install nil)
-      :config
-      (treesit-auto-add-to-auto-mode-alist 'all)
-      ;(global-treesit-auto-mode t)
-  	)
+  (use-package treesit-auto
+    :ensure t
+    :straight t
+    :after emacs
+    :custom
+    (treesit-auto-install nil)
+    :config
+    (treesit-auto-add-to-auto-mode-alist 'all)
+    ;(global-treesit-auto-mode t)
+    :hook
+    (emacs-startup . treesit-auto--build-major-mode-remap-alist)
+  )
 
+#+end_src
+
+
+
+* golden ratio scroll screen
+
+#+begin_src emacs-lisp
+  (use-package golden-ratio-scroll-screen
+    :ensure t
+    :config
+    (global-set-key [remap evil-scroll-down] 'golden-ratio-scroll-screen-up)
+    (global-set-key [remap evil-scroll-up] 'golden-ratio-scroll-screen-down)
+  )
 #+end_src
 
 * YASnippet
@@ -787,8 +807,6 @@ to use GitHub Flavored Markdown for enhanced compatibility.
 * scrolling
 
 #+begin_src emacs-lisp
-(setq scroll-preserve-screen-position 'always)
-  (setq mouse-wheel-follow-mouse 'nil)
 #+end_src
 
 * Exec from shell
@@ -823,20 +841,14 @@ to use GitHub Flavored Markdown for enhanced compatibility.
           (use-package blamer
             :ensure t
             :bind (("s-i" . blamer-show-commit-info)
-                   ("C-c i" . blamer-show-posframe-commit-info))
-            :defer 20
+                   ("C-c b" . blamer-show-posframe-commit-info))
             :custom
             (blamer-idle-time 0.3)
-            (blamer-min-offset 30)
+            (blamer-min-offset 60)
             (blamer-max-commit-message-length 60)
-  :custom-face
-            (blamer-face ((t :foreground "#7a88cf"
-                              :background nil
-                              :height 140
-                              :italic t)))
-	    (setq blamer-type 'selected)
+	    (setq blamer-type 'overlay-popup)
             :config
-            (global-blamer-mode 1))
+            (global-blamer-mode nil))
 #+end_src
 
 * Dumb Jump
@@ -864,103 +876,45 @@ to use GitHub Flavored Markdown for enhanced compatibility.
 * Eglot
 
 #+BEGIN_SRC emacs-lisp 
-   ;; Eglot with Pyright (LSP for Python)
-  (use-package eglot
-    :ensure t
-    :defer t
-    :bind (:map eglot-mode-map
-              ("C-c C-d" . eldoc)
-              ("C-c C-e" . eglot-rename)
-              ("C-c C-o" . python-sort-imports)
-              ("C-c C-f" . eglot-format-buffer))
-    :hook (
-  		 (python-mode . eglot-ensure)
-           (python-ts-mode . eglot-ensure)
-  	)
-    :config
-    (add-to-list 'eglot-server-programs '(python-mode . ("pylsp"))) ;;("pyrefly" "lsp")
-    (setq-default eglot-workspace-configuration
-                '((:pylsp . (:plugins (
-                                       :pycodestyle (:enabled :json-false)
-                                       :mccabe (:enabled :json-false)
-                                       :pyflakes (:enabled :json-false)
-                                       :flake8 (:enabled :json-false
-                                                :maxLineLength 88)
-  									 :jedi_completion (:include_params t :fuzzy t)
-                                       :ruff (:enabled t :lineLength 88)
-                                       :pydocstyle (:enabled t :convention "numpy")
-                                       :yapf (:enabled :json-false)
-                                       :autopep8 (:enabled :json-false)
-  									 :rope_autoimport (:enabled t)
-  									 :pylsp_mypy (:enabled t :live_mode t :strict nil)
-                                       )))))
-  )
-
-    (use-package eglot-booster
-  	:disabled t
-  	:after eglot
-  	:config	(eglot-booster-mode) (eglot-booster-io-only))
-
-
-  (use-package consult-eglot
-  :ensure t
-  :after (consult eglot)
-  :bind
-  (("C-c e s" . consult-eglot-symbols)))
-#+END_SRC
-
-* Flymake + Format
-#+begin_src emacs-lisp  :tangle no
-
-    (use-package flymake-ruff
-    :hook (python-mode . flymake-ruff-load)
+     ;; Eglot with Pyright (LSP for Python)
+    (use-package eglot
+      :ensure t
+      :defer t
+      :bind (:map eglot-mode-map
+                ("C-c C-d" . eldoc)
+                ("C-c C-e" . eglot-rename)
+                ("C-c C-o" . python-sort-imports)
+                ("C-c C-f" . eglot-format-buffer))
+      :hook (
+    		 (python-mode . eglot-ensure)
+             (python-ts-mode . eglot-ensure)
+    	)
+      :config
+      (add-to-list 'eglot-server-programs '(python-mode . ("basedpyright-langserver" "--stdio") ))
+  ;;("pylsp") ;;("pyrefly" "lsp")
+      (setq-default eglot-workspace-configuration
+                  '((:pylsp . (:plugins (
+                                         :pycodestyle (:enabled :json-false)
+                                         :mccabe (:enabled :json-false)
+                                         :pyflakes (:enabled :json-false)
+                                         :flake8 (:enabled :json-false :maxLineLength 88)
+    									:jedi_completion (:include_params t :fuzzy t)
+                                         :ruff (:enabled t :lineLength 88)
+                                         :pydocstyle (:enabled t :convention "numpy")
+                                         :yapf (:enabled :json-false)
+                                         :autopep8 (:enabled :json-false)
+    									   :rope_autoimport (:enabled t)
+    					:pylsp_mypy (:enabled t :live_mode t :strict nil)
+                                         )))))
+    (setq eglot-ignored-server-capabilites '(:documentHighlightProvider))
     )
 
-    
-    (defun my/ruff-format-buffer ()
-    "Format current buffer with ruff."
-    (interactive)
-    (shell-command-on-region (point-min) (point-max) "ruff format -" nil t))
-
-  ;; (define-key python-mode-map (kbd "C-c C-f") #'my/ruff-format-buffer)
-
-#+end_src
-
-
-* Tags
-
-#+begin_src emacs-lisp
-        (setq tags-add-tables nil)
-        (setq tags-revert-without-query t)
-        (setq tags-case-fold-search nil)
-
-        (defun my/load-project-tags ()
-        "Automatically load TAGS file from project root."
-        (let* ((project (project-current))
-               (root (when project (project-root project)))
-               (tags-file (when root (expand-file-name "TAGS" root))))
-          (when (and tags-file (file-exists-p tags-file))
-            (visit-tags-table tags-file t))))
-
-
-  (defun my/consult-etags ()
-    "Search tags from TAGS file using `consult'."
-    (interactive)
-    (unless tags-table-list
-      (user-error "No TAGS file loaded. Run `visit-tags-table' first."))
-    (let (candidates)
-      (visit-tags-table-buffer)
-      (tags-completion-table)
-      (mapatoms
-       (lambda (sym)
-         (push (symbol-name sym) candidates))
-       obarray)
-      (let ((selection (consult--read (delete-dups candidates)
-                                       :prompt "Tag: "
-                                       :require-match t)))
-        (find-tag selection))))
-
-#+end_src
+    (use-package consult-eglot
+    :ensure t
+    :after (consult eglot)
+    :bind
+    (("C-c e s" . consult-eglot-symbols)))
+#+END_SRC
 
 * Diff-HL
  The `diff-hl' package provides visual indicators for version control changes
@@ -975,7 +929,7 @@ to use GitHub Flavored Markdown for enhanced compatibility.
  changed lines and displaying blame information. `diff-hl' aims to provide
  a comparable experience in Emacs with its own set of customizations.
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp 
   (use-package diff-hl
     :defer t
     :straight t
@@ -995,6 +949,16 @@ to use GitHub Flavored Markdown for enhanced compatibility.
 
 #+end_src
 
+#+begin_src emacs-lisp :tangle no
+  (use-package git-gutter
+      :ensure t
+  	:disabled t
+      :custom
+  	(git-gutter:update-interval 2)
+      :config
+      (global-git-gutter-mode +1)
+  )
+#+end_src
 * Magit
  `magit' is a powerful Git interface for Emacs that provides a complete
  set of features to manage Git repositories. With its intuitive interface,
@@ -1012,15 +976,69 @@ to use GitHub Flavored Markdown for enhanced compatibility.
  extend the powerful capabilities that Magit offers in Emacs.
 
 #+begin_src emacs-lisp
-  (use-package magit
-    :ensure t
-    :straight t
-    :defer t)
+          (use-package magit
+            :ensure t
+            :straight t
+            :defer t
+        :config
+      (setq magit-blame-styles
+             '((margin
+                (margin-width . 80)
+                (margin-format . ("%C %s%f %a"))
+                (margin-face . magit-blame-margin)
+                (margin-body-face . magit-blame-dimmed)
+                (show-message . t)))
+    		 )
+      (setq magit-save-repository-buffers nil)
+  (remove-hook 'magit-status-sections-hook 'magit-insert-tags-header)
+  ;(remove-hook 'magit-status-sections-hook 'magit-insert-status-headers)
+  (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-pushremote)
+  (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-pushremote)
+  (remove-hook 'magit-status-sections-hook 'magit-insert-unpulled-from-upstream)
+  (remove-hook 'magit-status-sections-hook 'magit-insert-unpushed-to-upstream-or-recent)
+  	)
 
-  (use-package forge
-    :ensure t
-    :after magit)
+          (use-package forge
+            :ensure t
+  		  :defer t
+            :after magit)
 
+#+end_src
+
+* Avy
+
+#+begin_src emacs-lisp
+  (use-package avy
+    :ensure t
+    :defer t
+    :after evil
+    :config
+    (avy-setup-default)
+    (evil-define-key 'normal 'global
+    ;; Jump to char
+    (kbd "s") 'avy-goto-char-timer
+    ;; Jump to word
+    (kbd "gw") 'avy-goto-word-1
+    ;; Jump to line
+    (kbd "gl") 'avy-goto-line
+    ;; Jump to symbol (like Vim’s easymotion)
+    (kbd "gs") 'avy-goto-symbol-1
+    ;; Jump inside window
+    (kbd "SPC j") 'avy-goto-char-timer)
+
+  (defun avy-action-embark (pt)
+    (unwind-protect
+        (save-excursion
+          (goto-char pt)
+          (embark-act))
+      (select-window
+       (cdr (ring-ref avy-ring 0))))
+    t)
+
+  (setf (alist-get ?. avy-dispatch-alist) 'avy-action-embark)
+  (define-key isearch-mode-map (kbd "M-j") 'avy-isearch)
+
+  )
 #+end_src
 
 * XCLIP
@@ -1048,15 +1066,23 @@ to use GitHub Flavored Markdown for enhanced compatibility.
   ;; the code.
 
 #+begin_src emacs-lisp
-
   (use-package indent-guide
     :defer t
     :straight t
+    :disabled t
     :ensure t
     :hook
     (prog-mode . indent-guide-mode)  ;; Activate indent-guide in programming modes.
     :config
     (setq indent-guide-char "│"))    ;; Set the character used for the indent guide.
+
+  (use-package highlight-indent-guides
+    :ensure t
+    :config
+    (add-hook 'prog-mode-hook 'highlight-indent-guides-mode)
+    (setq highlight-indent-guides-method 'character)
+    (setq  highlight-indent-guides-character "│")
+    )
 #+end_src
 
 * ADD-NODE-MODULES-PATH
@@ -1125,13 +1151,6 @@ changes in your buffers.
 
 #+end_src
 
-
-* Deadgrep
-#+BEGIN_SRC emacs-lisp
-  (use-package deadgrep
-    :ensure t)
-#+END_SRC
-
 * EVIL
 The `evil' package provides Vim emulation within Emacs, allowing
 users to edit text in a modal way, similar to how Vim
@@ -1142,9 +1161,6 @@ experience.
   (use-package evil
     :ensure t
     :straight t
-    :defer t
-    :hook
-    (after-init . evil-mode)
     :init
     (setq evil-want-integration t)      ;; Integrate `evil' with other Emacs features (optional as it's true by default).
     (setq evil-want-keybinding nil)     ;; Disable default keybinding to set custom ones.
@@ -1161,6 +1177,7 @@ experience.
     (evil-set-leader 'normal (kbd "SPC"))
     (evil-set-leader 'visual (kbd "SPC"))
 
+    (evil-mode 1)
     ;; Keybindings for searching and finding files.
     (evil-define-key 'normal 'global (kbd "<leader> s f") 'consult-find)
     (evil-define-key 'normal 'global (kbd "<leader> s g") 'consult-grep)
@@ -1237,6 +1254,21 @@ experience.
     (evil-define-key 'normal 'global (kbd "] t") 'tab-next) ;; Go to next tab
     (evil-define-key 'normal 'global (kbd "[ t") 'tab-previous) ;; Go to previous tab
 
+    ;; windows
+
+    (define-prefix-command 'my-window-map)
+    (define-key evil-normal-state-map (kbd "SPC w") 'my-window-map)
+    (define-key evil-visual-state-map (kbd "SPC w") 'my-window-map)
+
+    ;; Bind some example window commands
+    (define-key my-window-map (kbd "s") 'split-window-below)
+    (define-key my-window-map (kbd "v") 'split-window-right)
+    (define-key my-window-map (kbd "h") 'windmove-left)
+    (define-key my-window-map (kbd "l") 'windmove-right)
+    (define-key my-window-map (kbd "k") 'windmove-up)
+    (define-key my-window-map (kbd "j") 'windmove-down)
+    (define-key my-window-map (kbd "q") 'evil-quit)
+
 
     ;; Custom example. Formatting with prettier tool.
     (evil-define-key 'normal 'global (kbd "<leader> m p")
@@ -1245,18 +1277,9 @@ experience.
                        (shell-command (concat "prettier --write " (shell-quote-argument (buffer-file-name))))
                        (revert-buffer t t t)))
 
-
-    (defun my/lsp-or-dumb-jump ()
-  	"Try LSP definition first, fall back to dumb-jump if it fails."
-  	(interactive)
-  	(condition-case err
-  	    (lsp-find-definition)
-  	    (error
-  	    (message "LSP failed (%s), falling back to dumb-jump..." err)
-  	    (dumb-jump-go))))
     ;; LSP commands keybindings
     (evil-define-key 'normal lsp-mode-map
-                     (kbd "gd") #'my/lsp-or-dumb-jump ;; evil-collection already provides gd
+                     (kbd "gd") #'lsp-find-definition ;; evil-collection already provides gd
   				   (kbd "gR") 'dumb-jump-quick-look
                      (kbd "gr") 'lsp-find-references                   ;; Finds LSP references
                      (kbd "<leader> c a") 'lsp-execute-code-action     ;; Execute code actions
@@ -1294,7 +1317,7 @@ experience.
                            (comment-or-uncomment-region (region-beginning) (region-end)))))
 
     ;; Enable evil mode
-    (evil-mode 1))
+    )
 
 #+end_src
 
@@ -1307,14 +1330,14 @@ experience.
 #+begin_src emacs-lisp
 
   (use-package evil-collection
-    :defer t
+    :after evil
     :straight t
     :ensure t
     :custom
     (evil-collection-want-find-usages-bindings t)
     ;; Hook to initialize `evil-collection' when `evil-mode' is activated.
-    :hook
-    (evil-mode . evil-collection-init))
+    :config
+    (evil-collection-init))
 
 
   ;; EVIL SURROUND
@@ -1348,6 +1371,12 @@ experience.
     :config
     (global-evil-matchit-mode 1))
 #+end_src
+
+* Deadgrep
+#+BEGIN_SRC emacs-lisp
+  (use-package deadgrep
+    :ensure t)
+#+END_SRC
 
 * Org Mode
 ** Org mode config
@@ -1394,82 +1423,7 @@ experience.
     :config ; add late to hook
       (add-hook 'org-mode-hook #'org-modern-indent-mode 90))
 
-    										;  (use-package org-bullets
-    										;    :after org
-    										;    :hook (org-mode . org-bullets-mode)
-    										;    :custom
-    										;    (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
-
-    ;; Replace List hyphen with dot
-    										; (font-lock-add-keywords 'org-mode
-    										;                         '(("^ *\\([-]\\) "
-    										;                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-
-    										; (with-eval-after-load 'org-faces (dolist (face '((org-level-1 . 1.2)
-    										;                (org-level-2 . 1.1)
-    										;                (org-level-3 . 1.05)
-    										;                (org-level-4 . 1.0)
-    										;                (org-level-5 . 1.1)
-    										;                (org-level-6 . 1.1)
-    										;                (org-level-7 . 1.1)
-    										;                (org-level-8 . 1.1)))
-    										;    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'regular :height (cdr face))))
-
-    										;    (let* ((variable-tuple
-    										;          (cond ((x-list-fonts "ETBembo")         '(:font "ETBembo"))
-    										;                ((x-list-fonts "Source Sans Pro") '(:font "Source Sans Pro"))
-    										;                ((x-list-fonts "Lucida Grande")   '(:font "Lucida Grande"))
-    										;                ((x-list-fonts "Verdana")         '(:font "Verdana"))
-    										;                ((x-family-fonts "Sans Serif")    '(:family "Sans Serif"))
-    										;                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
-    										;         (base-font-color     (face-foreground 'default nil 'default))
-    										;         (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
-
-    										;    (custom-theme-set-faces
-    										;     'user
-    										;     `(org-level-8 ((t (,@headline ,@variable-tuple))))
-    										;     `(org-level-7 ((t (,@headline ,@variable-tuple))))
-    										;     `(org-level-6 ((t (,@headline ,@variable-tuple))))
-    										;     `(org-level-5 ((t (,@headline ,@variable-tuple))))
-    										;     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
-    										;     `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.25))))
-    										;     `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.5))))
-    										;     `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.75))))
-    										;     `(org-document-title ((t (,@headline ,@variable-tuple :height 2.0 :underline nil))))))
-
-    										;   (custom-theme-set-faces
-    										;  'user
-    										;  '(variable-pitch ((t (:family "ETBembo" :height 180 :weight normal))))
-    										;  '(fixed-pitch ((t ( :family "Fira Code Retina" :height 160)))))
-    										; (add-hook 'org-mode-hook 'variable-pitch-mode)
-    										;   ;; Make sure org-indent face is available
-    										;   (require 'org-indent)
-
-    										; (custom-theme-set-faces
-    										;  'user
-    										;  '(org-block ((t (:inherit fixed-pitch))))
-    										;  '(org-code ((t (:inherit (shadow fixed-pitch)))))
-    										;  '(org-document-info ((t (:foreground "dark orange"))))
-    										;  '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
-    										;  '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
-    										;  '(org-link ((t (:foreground "royal blue" :underline t))))
-    										;  '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-    										;  '(org-property-value ((t (:inherit fixed-pitch))) t)
-    										;  '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-    										;  '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
-    										;  '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
-    										;  '(org-verbatim ((t (:inherit (shadow fixed-pitch))))))
-
-    										;    ;; Ensure that anything that should be fixed-pitch in Org files appears that way
-    										;    (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
-    										;    (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
-    										;    (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
-    										;    (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
-    										;    (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
-    										;    (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
-    										;    (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
-#+end_src
+    									#+end_src
 
 ** Org babel config
 #+begin_src emacs-lisp
@@ -1504,115 +1458,132 @@ experience.
 * Treemacs
 
 #+begin_src emacs-lisp
-(use-package treemacs
-  :ensure t
-  :defer t
-  :init
-  (with-eval-after-load 'winum
-    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
-  :config
-  (progn
-    (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-          treemacs-deferred-git-apply-delay        0.5
-          treemacs-directory-name-transformer      #'identity
-          treemacs-display-in-side-window          t
-          treemacs-eldoc-display                   'simple
-          treemacs-file-event-delay                2000
-          treemacs-file-extension-regex            treemacs-last-period-regex-value
-          treemacs-file-follow-delay               0.2
-          treemacs-file-name-transformer           #'identity
-          treemacs-follow-after-init               t
-          treemacs-expand-after-init               t
-          treemacs-find-workspace-method           'find-for-file-or-pick-first
-          treemacs-git-command-pipe                ""
-          treemacs-goto-tag-strategy               'refetch-index
-          treemacs-header-scroll-indicators        '(nil . "^^^^^^")
-          treemacs-hide-dot-git-directory          t
-          treemacs-indentation                     2
-          treemacs-indentation-string              " "
-          treemacs-is-never-other-window           nil
-          treemacs-max-git-entries                 5000
-          treemacs-missing-project-action          'ask
-          treemacs-move-files-by-mouse-dragging    t
-          treemacs-move-forward-on-expand          nil
-          treemacs-no-png-images                   nil
-          treemacs-no-delete-other-windows         t
-          treemacs-project-follow-cleanup          nil
-          treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
-          treemacs-position                        'left
-          treemacs-read-string-input               'from-child-frame
-          treemacs-recenter-distance               0.1
-          treemacs-recenter-after-file-follow      nil
-          treemacs-recenter-after-tag-follow       nil
-          treemacs-recenter-after-project-jump     'always
-          treemacs-recenter-after-project-expand   'on-distance
-          treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
-          treemacs-project-follow-into-home        nil
-          treemacs-show-cursor                     nil
-          treemacs-show-hidden-files               t
-          treemacs-silent-filewatch                nil
-          treemacs-silent-refresh                  nil
-          treemacs-sorting                         'alphabetic-asc
-          treemacs-select-when-already-in-treemacs 'move-back
-          treemacs-space-between-root-nodes        t
-          treemacs-tag-follow-cleanup              t
-          treemacs-tag-follow-delay                1.5
-          treemacs-text-scale                      nil
-          treemacs-user-mode-line-format           nil
-          treemacs-user-header-line-format         nil
-          treemacs-wide-toggle-width               70
-          treemacs-width                           35
-          treemacs-width-increment                 1
-          treemacs-width-is-initially-locked       t
-          treemacs-workspace-switch-cleanup        nil)
+  (use-package treemacs
+    :ensure t
+    :defer t
+    :init
+    (with-eval-after-load 'winum
+      (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+    :config
+    (progn
+      (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+            treemacs-deferred-git-apply-delay        0.5
+            treemacs-directory-name-transformer      #'identity
+            treemacs-display-in-side-window          t
+            treemacs-eldoc-display                   'simple
+            treemacs-file-event-delay                2000
+            treemacs-file-extension-regex            treemacs-last-period-regex-value
+            treemacs-file-follow-delay               0.2
+            treemacs-file-name-transformer           #'identity
+            treemacs-follow-after-init               t
+            treemacs-expand-after-init               t
+            treemacs-find-workspace-method           'find-for-file-or-pick-first
+            treemacs-git-command-pipe                ""
+            treemacs-goto-tag-strategy               'refetch-index
+            treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+            treemacs-hide-dot-git-directory          t
+            treemacs-indentation                     2
+            treemacs-indentation-string              " "
+            treemacs-is-never-other-window           nil
+            treemacs-max-git-entries                 5000
+            treemacs-missing-project-action          'ask
+            treemacs-move-files-by-mouse-dragging    t
+            treemacs-move-forward-on-expand          nil
+            treemacs-no-png-images                   nil
+            treemacs-no-delete-other-windows         t
+            treemacs-project-follow-cleanup          nil
+            treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+            treemacs-position                        'left
+            treemacs-read-string-input               'from-child-frame
+            treemacs-recenter-distance               0.1
+            treemacs-recenter-after-file-follow      nil
+            treemacs-recenter-after-tag-follow       nil
+            treemacs-recenter-after-project-jump     'always
+            treemacs-recenter-after-project-expand   'on-distance
+            treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+            treemacs-project-follow-into-home        nil
+            treemacs-show-cursor                     nil
+            treemacs-show-hidden-files               t
+            treemacs-silent-filewatch                nil
+            treemacs-silent-refresh                  nil
+            treemacs-sorting                         'alphabetic-asc
+            treemacs-select-when-already-in-treemacs 'move-back
+            treemacs-space-between-root-nodes        t
+            treemacs-tag-follow-cleanup              t
+            treemacs-tag-follow-delay                1.5
+            treemacs-text-scale                      nil
+            treemacs-user-mode-line-format           nil
+            treemacs-user-header-line-format         nil
+            treemacs-wide-toggle-width               70
+            treemacs-width                           35
+            treemacs-width-increment                 1
+            treemacs-width-is-initially-locked       t
+	    treemacs-display-current-project-exclusively t
+            treemacs-workspace-switch-cleanup        nil)
 
-    ;; The default width and height of the icons is 22 pixels. If you are
-    ;; using a Hi-DPI display, uncomment this to double the icon size.
-    ;;(treemacs-resize-icons 44)
+      ;; The default width and height of the icons is 22 pixels. If you are
+      ;; using a Hi-DPI display, uncomment this to double the icon size.
+      ;;(treemacs-resize-icons 44)
 
-    (treemacs-follow-mode t)
-    (treemacs-filewatch-mode t)
-    (treemacs-fringe-indicator-mode 'always)
-    (when treemacs-python-executable
-      (treemacs-git-commit-diff-mode t))
+      (treemacs-follow-mode t)
+      (treemacs-indent-guide-mode nil)
+      (treemacs-filewatch-mode t)
+      (treemacs-fringe-indicator-mode 'always)
+      (when treemacs-python-executable
+        (treemacs-git-commit-diff-mode t))
 
-    (pcase (cons (not (null (executable-find "git")))
-                 (not (null treemacs-python-executable)))
-      (`(t . t)
-       (treemacs-git-mode 'deferred))
-      (`(t . _)
-       (treemacs-git-mode 'simple)))
+      (pcase (cons (not (null (executable-find "git")))
+                   (not (null treemacs-python-executable)))
+        (`(t . t)
+         (treemacs-git-mode 'deferred))
+        (`(t . _)
+         (treemacs-git-mode 'simple)))
 
-    (treemacs-hide-gitignored-files-mode nil))
-  :bind
-  (:map global-map
-        ("M-0"       . treemacs-select-window)
-        ("C-x t 1"   . treemacs-delete-other-windows)
-        ("C-x t t"   . treemacs)
-        ("C-x t d"   . treemacs-select-directory)
-        ("C-x t B"   . treemacs-bookmark)
-        ("C-x t C-t" . treemacs-find-file)
-        ("C-x t M-t" . treemacs-find-tag)))
+      (treemacs-hide-gitignored-files-mode nil))
+    :bind
+    (:map global-map
+          ("M-0"       . treemacs-select-window)
+          ("C-x t 1"   . treemacs-delete-other-windows)
+          ("C-x t t"   . treemacs)
+          ("C-x t d"   . treemacs-select-directory)
+          ("C-x t B"   . treemacs-bookmark)
+          ("C-x t C-t" . treemacs-find-file)
+          ("C-x t M-t" . treemacs-find-tag)))
 
-(use-package treemacs-evil
-  :after (treemacs evil)
-  :ensure t)
+  (use-package treemacs-evil
+    :after (treemacs evil)
+    :ensure t)
 
-(use-package treemacs-icons-dired
-  :hook (dired-mode . treemacs-icons-dired-enable-once)
-  :ensure t)
+  (use-package treemacs-icons-dired
+    :hook (dired-mode . treemacs-icons-dired-enable-once)
+    :ensure t)
 
-(use-package treemacs-magit
-  :after (treemacs magit)
-  :ensure t)
+  (use-package treemacs-magit
+    :after (treemacs magit)
+    :ensure t)
 
-(use-package treemacs-tab-bar ;;treemacs-tab-bar if you use tab-bar-mode
-  :after (treemacs)
-  :ensure t
-  :config (treemacs-set-scope-type 'Tabs))
+  (use-package treemacs-tab-bar ;;treemacs-tab-bar if you use tab-bar-mode
+    :after (treemacs)
+    :ensure t
+    :config (treemacs-set-scope-type 'Tabs))
 
-(treemacs-start-on-boot)
+  (treemacs-start-on-boot)
 #+end_src 
+
+* Symbols outline
+#+begin_src emacs-lisp
+(use-package symbols-outline
+  :ensure t
+  :bind ("C-c i" . symbols-outline-show)
+  :init
+  (add-hook 'eglot-mode-hook ; Or `eglot-mode-hook' 
+            (lambda ()
+              (setq-local symbols-outline-fetch-fn #'symbols-outline-lsp-fetch)))
+  :config
+  (setq symbols-outline-window-position 'left)
+  (symbols-outline-follow-mode))
+#+end_src
+
 * RAINBOW DELIMITERS
 The `rainbow-delimiters' package provides colorful parentheses, brackets, and braces
 to enhance readability in programming modes. Each level of nested delimiter is assigned
@@ -1679,7 +1650,7 @@ a different color, making it easier to match pairs visually.
   and functional. It integrates well with various Emacs features, enhancing the overall user
   experience by displaying relevant information in a compact format.
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
 
   (use-package doom-modeline
     :ensure t
@@ -1698,6 +1669,24 @@ a different color, making it easier to match pairs visually.
     (after-init . doom-modeline-mode))
 #+end_src
 
+#+begin_src emacs-lisp
+
+      (use-package mood-line
+        :ensure t
+
+        ;; Enable mood-line
+        :config
+        (mood-line-mode)
+
+        ;; Use pretty Fira Code-compatible glyphs
+        :custom
+        (mood-line-glyph-alist mood-line-glyphs-fira-code)
+  	  )
+
+      (use-package minions
+        :straight (:host github :repo "tarsius/minions")
+      )
+#+end_src
 * NERD ICONS
   The `nerd-icons' package provides a set of icons for use in Emacs. These icons can
   enhance the visual appearance of various modes and packages, making it easier to
@@ -1744,32 +1733,6 @@ a different color, making it easier to match pairs visually.
   #+end_src
 
 * Themes
-** CATPPUCCIN THEME
-  The `catppuccin-theme' package provides a visually pleasing color theme
-  for Emacs that is inspired by the popular Catppuccin color palette.
-  This theme aims to create a comfortable and aesthetic coding environment
-  with soft colors that are easy on the eyes.
-#+begin_src emacs-lisp :tangle no
-
-  (use-package catppuccin-theme
-    :ensure t
-    :straight t
-    :config
-    (custom-set-faces
-     ;; Set the color for changes in the diff highlighting to blue.
-     `(diff-hl-change ((t (:background unspecified :foreground ,(catppuccin-get-color 'blue))))))
-
-    (custom-set-faces
-     ;; Set the color for deletions in the diff highlighting to red.
-     `(diff-hl-delete ((t (:background unspecified :foreground ,(catppuccin-get-color 'red))))))
-
-    (custom-set-faces
-     ;; Set the color for insertions in the diff highlighting to green.
-     `(diff-hl-insert ((t (:background unspecified :foreground ,(catppuccin-get-color 'green))))))
-
-    ;; Load the Catppuccin theme without prompting for confirmation.
-    (load-theme 'catppuccin :no-confirm))
-#+end_src
 
 ** Gruvbox theme config
 
@@ -1869,16 +1832,6 @@ a different color, making it easier to match pairs visually.
     )
 #+end_src
 
-
-** Pinerose
-
-#+begin_src emacs-lisp
-  (use-package rose-pine-theme
-  :straight (rose-pine-theme :type git :host github :repo "konrad1977/pinerose-emacs")
-  :config
-  (load-theme 'rose-pine-theme t))
-#+end_src
-
 * UTILITARY FUNCTION TO INSTALL EMACS-KICK
 
 #+begin_src emacs-lisp
@@ -1939,33 +1892,6 @@ a different color, making it easier to match pairs visually.
         (error "No UV Python environment found in %s" project-root))))
  #+end_src
 
-* Flycheck (disabled)
- 
-
- #+begin_src emacs-lisp :tangle no
-   (use-package flycheck
-       :ensure t
-       :config
-       (add-hook 'after-init-hook #'global-flycheck-mode))
-
-    (flycheck-define-checker python-ty
-          "A Python syntax and type checker using ty."
-          :command ("ty" "check" source-original)
-          :error-patterns
-          ((error line-start (file-name) ":" line ":" column ": error: " (message) line-end))
-          :modes python-mode)
-
-
-     (add-to-list 'flycheck-checkers 'python-ty)
-
-     (add-hook 'python-mode-hook
-               (lambda ()
-                 (setq-local flycheck-checker 'python-ty)))
-
-
-     (provide 'init)
- #+end_src
-
 * DAPE Mode
 
 #+BEGIN_SRC emacs-lisp
@@ -1980,37 +1906,9 @@ a different color, making it easier to match pairs visually.
   :ensure t)
 #+end_src`
 
-
-* GPTEL
-
-#+BEGIN_SRC emacs-lisp
-(use-package gptel
-  :ensure t
-  :config
-  ;; Define the Gemini backend
-  (gptel-make-gemini "Gemini" :stream t :key (gptel-api-key-from-auth-source "generativelanguage.googleapis.com"))
-
-  ;; Set Gemini as your default backend
-  (setq gptel-default-backend 'Gemini)
-  )
-#+end_src
-
-* Aider
-#+begin_src emacs-lisp
-(use-package aidermacs
-  :bind (("C-c a" . aidermacs-transient-menu))
-  :config
-  :custom
-  ; See the Configuration section below
-  (aidermacs-default-chat-mode 'architect)
-  (aidermacs-default-model "ollama_chat/deepseek-r1:8b"))
-#+end_src
-
-
-
 * My utils
 
-#+BEGIN_SRC emacs-lisp
+#+BEGIN_SRC emacs-lisp :tangle no
     (defun my/open-jira-ticket-at-point ()
       "Open JIRA ticket at point in Firefox. Assumes ID like GRW-1234."
       (interactive)
@@ -2063,7 +1961,8 @@ a different color, making it easier to match pairs visually.
 #+begin_src emacs-lisp
   (use-package project
   :ensure nil ; project.el is built-in
-  :config
+  :after (consult magit)
+  :init
   (setq project-switch-commands
         '((?s "Consult Grep" consult-grep)
           (?r "Consult Ripgrep" consult-ripgrep)
@@ -2073,19 +1972,220 @@ a different color, making it easier to match pairs visually.
           (?g "Magit" magit-project-status))))
 #+end_src
 
-* Git gutter
+* Spacious padding
 
 #+begin_src emacs-lisp
-  (use-package git-gutter
+  (use-package spacious-padding
     :ensure t
-    :hook (prog-mode . git-gutter-mode)
     :config
-    (setq git-gutter:update-interval 0.02))
+    (spacious-padding-mode 1)
+  )
+#+end_src
 
-  (use-package git-gutter-fringe
+
+
+* Devdocs
+
+#+begin_src emacs-lisp
+;; Define the installation function outside of the use-package block
+(defun my-devdocs-install ()
+  "Install documentation sets defined in `my-devdocs-docs-list` if not already installed."
+  (interactive)
+  (require 'devdocs) ;; Ensure devdocs is loaded
+  (dolist (doc my-devdocs-docs-list)
+    (unless (member doc (devdocs--installed-docs))
+      (devdocs-install doc))))
+
+;; Ensure my-devdocs-docs-list is defined before use
+(defvar my-devdocs-docs-list
+  '("django~5.0" "rust" "django_rest_framework")
+  "List of documentation sets to install in devdocs.")
+
+(use-package devdocs
+  :ensure t
+  :commands (devdocs-install devdocs-peruse devdocs-lookup)
+  :config
+  ;; Automatically call the installation function on startup
+  (my-devdocs-install)
+
+  (global-set-key (kbd "C-h D") 'devdocs-lookup)
+  ) 
+#+end_src
+
+* bookmarks
+
+#+begin_src emacs-lisp 
+(use-package bm
+         :ensure t
+         :demand t
+
+         :init
+         ;; restore on load (even before you require bm)
+         (setq bm-restore-repository-on-load t)
+
+
+         :config
+         ;; Allow cross-buffer 'next'
+         (setq bm-cycle-all-buffers t)
+
+         ;; where to store persistant files
+         (setq bm-repository-file "~/.emacs.d/bm-repository")
+
+         ;; save bookmarks
+         (setq-default bm-buffer-persistence t)
+
+         ;; Loading the repository from file when on start up.
+         (add-hook 'after-init-hook 'bm-repository-load)
+
+         ;; Saving bookmarks
+         (add-hook 'kill-buffer-hook #'bm-buffer-save)
+
+         ;; Saving the repository to file when on exit.
+         ;; kill-buffer-hook is not called when Emacs is killed, so we
+         ;; must save all bookmarks first.
+         (add-hook 'kill-emacs-hook #'(lambda nil
+                                          (bm-buffer-save-all)
+                                          (bm-repository-save)))
+
+         ;; The `after-save-hook' is not necessary to use to achieve persistence,
+         ;; but it makes the bookmark data in repository more in sync with the file
+         ;; state.
+         (add-hook 'after-save-hook #'bm-buffer-save)
+
+         ;; Restoring bookmarks
+         (add-hook 'find-file-hooks   #'bm-buffer-restore)
+         (add-hook 'after-revert-hook #'bm-buffer-restore)
+
+         ;; The `after-revert-hook' is not necessary to use to achieve persistence,
+         ;; but it makes the bookmark data in repository more in sync with the file
+         ;; state. This hook might cause trouble when using packages
+         ;; that automatically reverts the buffer (like vc after a check-in).
+         ;; This can easily be avoided if the package provides a hook that is
+         ;; called before the buffer is reverted (like `vc-before-checkin-hook').
+         ;; Then new bookmarks can be saved before the buffer is reverted.
+         ;; Make sure bookmarks is saved before check-in (and revert-buffer)
+         (add-hook 'vc-before-checkin-hook #'bm-buffer-save)
+
+	(evil-define-key 'normal 'global (kbd "<leader> b t") 'bm-toggle)
+	(evil-define-key 'normal 'global (kbd "<leader> b n") 'bm-next)
+	(evil-define-key 'normal 'global (kbd "<leader> b p") 'bm-previous)
+         )
+#+end_src
+
+
+* origami
+#+begin_src emacs-lisp
+  (use-package origami
+    :ensure t
+    :hook (python-mode . origami-mode)  ;; auto-enable in Python
+    )
+#+end_src
+
+
+
+* tab mode
+
+#+begin_src emacs-lisp :tangle no
+  ;; Always show the tab bar
+(setq tab-bar-show 1)
+(tab-bar-mode 1)
+
+;; Hide [+] and [x] buttons if you like minimal look
+(setq tab-bar-new-button-show nil
+      tab-bar-close-button-show nil)
+
+;; Default keybindings for tabs inside a frame
+(evil-define-key 'normal 'global
+  (kbd "g t") 'tab-next
+  (kbd "g T") 'tab-previous
+  (kbd "C-t") 'tab-new
+  (kbd "C-w t") 'tab-close)
+
+#+end_src
+
+
+
+* project switching
+
+#+begin_src emacs-lisp
+      (use-package perspective
+    	:ensure t
+      :bind
+      ;("C-x C-b" . persp-list-buffers)         ; or use a nicer switcher, see below
+      :custom
+      (persp-mode-prefix-key (kbd "C-x x"))  ; pick your own prefix key here
+      :init
+      (persp-mode)
+      :config
+      (consult-customize consult--source-buffer :hidden t :default nil)
+      (add-to-list 'consult-buffer-sources persp-consult-source)
+    )
+  (defun persp-mode-line-click (event)
+    "Cycle to the next perspective on click."
+    (interactive "e")
+    ;; Simple fix: just cycle to next instead of trying to parse
+    (persp-next)
+    (persp-update-modestring))
+#+end_src
+
+
+* pytest
+#+begin_src emacs-lisp
+  (use-package python-pytest
+    :config
+    (evil-define-key 'normal 'global (kbd "<leader> t t") 'python-pytest-dispatch)
+  )
+#+end_src
+
+* GPTEL
+
+#+BEGIN_SRC emacs-lisp
+  (use-package gptel
+    :straight (:host github :repo "karthink/gptel")
     :ensure t
     :config
-    (define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
-    (define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
-    (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom))
+    (gptel-make-gh-copilot "Copilot")
+    (setq gptel-backend (gptel-make-gh-copilot "Copilot"))
+  )
+
+    (with-eval-after-load 'evil
+     (define-key evil-normal-state-map (kbd "SPC u") 'universal-argument))
+ 
+#+end_src
+
+* Aider
+#+begin_src emacs-lisp
+(use-package aidermacs
+  :bind (("C-c a" . aidermacs-transient-menu))
+  :config
+  :custom
+  ; See the Configuration section below
+  (aidermacs-default-chat-mode 'architect)
+  (aidermacs-default-model "ollama_chat/deepseek-r1:8b"))
+#+end_src
+
+
+* Copilot
+
+#+begin_src emacs-lisp
+    (use-package copilot
+      :straight (:host github :repo "copilot-emacs/copilot.el" :files ("*.el"))
+      :ensure t
+      :config
+      (add-hook 'prog-mode-hook 'copilot-mode)
+      (define-key copilot-completion-map (kbd "<right>") 'copilot-accept-completion)
+      )
+
+
+    (use-package nvm
+    :straight (:host github :repo "rejeep/nvm.el")
+    :config
+    ;; Optionally set a default node version
+    (nvm-use "20.18.0"))
+
+  (add-to-list 'load-path "~/.emacs.legacy/lisp/")
+  (require 'llm-tool-collection)
+
+  (mapcar (apply-partially #'apply #'gptel-make-tool)
+  	    (llm-tool-collection-get-all))
 #+end_src
